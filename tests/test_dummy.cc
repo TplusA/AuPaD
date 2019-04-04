@@ -25,6 +25,33 @@
 
 #include <doctest.h>
 
+#include "dbus/taddybus.hh"
+
+/* dummies to avoid linking against GLib with its stupid memory management */
+void g_error_free(GError *) { FAIL("unexpected"); }
+void g_bus_unown_name(guint) { FAIL("unexpected"); }
+void g_dbus_method_invocation_return_error_valist(
+        GDBusMethodInvocation *, GQuark, gint, const gchar *, va_list) {}
+void g_bus_unwatch_name(guint) { FAIL("unexpected"); }
+GQuark g_dbus_error_quark() { FAIL("unexpected"); return GQuark(); }
+guint g_bus_own_name(GBusType, const gchar *, GBusNameOwnerFlags,
+                     GBusAcquiredCallback, GBusNameAcquiredCallback,
+                     GBusNameLostCallback, gpointer, GDestroyNotify)
+{
+    FAIL("unexpected");
+    return 0;
+}
+guint g_bus_watch_name_on_connection(GDBusConnection *, const gchar *,
+                                     GBusNameWatcherFlags, GBusNameAppearedCallback,
+                                     GBusNameVanishedCallback, gpointer,
+                                     GDestroyNotify)
+{
+    FAIL("unexpected");
+    return 0;
+}
+
+
 TEST_CASE("Dummy")
 {
+    CHECK(TDBus::log_dbus_error(nullptr, nullptr));
 }

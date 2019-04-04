@@ -42,9 +42,15 @@ noinst_LTLIBRARIES = libtestrunner.la
 
 libtestrunner_la_SOURCES = testrunner.cc
 
-test_dummy_SOURCES = test_dummy.cc
-test_dummy_LDADD = libtestrunner.la
-test_dummy_CPPFLAGS = $(AM_CPPFLAGS)
+test_dummy_SOURCES = \
+    test_dummy.cc \
+    mock_os.hh mock_os.cc \
+    mock_messages.hh mock_messages.cc \
+    mock_expectation.hh
+test_dummy_LDADD = \
+    libtestrunner.la \
+    $(top_builddir)/src/dbus/libtaddybus.la
+test_dummy_CPPFLAGS = $(AM_CPPFLAGS) $(AUPAD_DEPENDENCIES_CFLAGS)
 test_dummy_CXXFLAGS = $(AM_CXXFLAGS)
 
 doctest: $(check_PROGRAMS)
