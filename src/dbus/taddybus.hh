@@ -40,101 +40,6 @@ namespace TDBus
 bool log_dbus_error(GError **error, const char *what);
 
 /*!
- * Observe presence of a specific name on a D-Bus connection.
- *
- * While it is perfectly possible to use watchers directly in client code,
- * using #TDBus::Bus::add_watcher() is simpler and often sufficient.
- */
-class PeerWatcher
-{
-  private:
-    const std::string name_;
-    const std::function<void(GDBusConnection *, const char *)> name_appeared_;
-    const std::function<void(GDBusConnection *, const char *)> name_vanished_;
-
-    guint watcher_id_;
-
-  public:
-    PeerWatcher(const PeerWatcher &) = delete;
-    PeerWatcher(PeerWatcher &&) = default;
-    PeerWatcher &operator=(const PeerWatcher &) = delete;
-    PeerWatcher &operator=(PeerWatcher &&) = default;
-
-    explicit PeerWatcher(const char *name,
-                         std::function<void(GDBusConnection *, const char *)> &&name_appeared,
-                         std::function<void(GDBusConnection *, const char *)> &&name_vanished):
-        name_(name),
-        name_appeared_(std::move(name_appeared)),
-        name_vanished_(std::move(name_vanished)),
-        watcher_id_(0)
-    {}
-
-    ~PeerWatcher() { stop(); }
-
-    void start(GDBusConnection *connection);
-    void stop();
-
-  private:
-    static void appeared(GDBusConnection *connection,
-                         const gchar *name, const gchar *name_owner,
-                         gpointer user_data);
-    static void vanished(GDBusConnection *connection,
-                         const gchar *name, gpointer user_data);
-};
-
-/*!
- * D-Bus connection.
- */
-class Bus
-{
-  public:
-    enum class Type
-    {
-        SESSION,
-        SYSTEM,
-    };
-
-  private:
-    const std::string object_name_;
-    const Type bus_type_;
-
-    std::function<void(GDBusConnection *)> on_connect_;
-    std::function<void(GDBusConnection *)> on_name_acquired_;
-    std::function<void(GDBusConnection *)> on_name_lost_;
-
-    guint owner_id_;
-    std::list<PeerWatcher> watchers_;
-
-  public:
-    Bus(const Bus &) = delete;
-    Bus(Bus &&) = default;
-    Bus &operator=(const Bus &) = delete;
-    Bus &operator=(Bus &&) = default;
-
-    explicit Bus(const char *object_name, Type t);
-    ~Bus();
-
-    void add_watcher(const char *name,
-                     std::function<void(GDBusConnection *, const char *)> &&appeared,
-                     std::function<void(GDBusConnection *, const char *)> &&vanished)
-    {
-        watchers_.emplace_back(name, std::move(appeared), std::move(vanished));
-    }
-
-    bool connect(std::function<void(GDBusConnection *)> &&on_connect,
-                 std::function<void(GDBusConnection *)> &&on_name_acquired,
-                 std::function<void(GDBusConnection *)> &&on_name_lost);
-
-  private:
-    static void bus_acquired(GDBusConnection *connection,
-                             const gchar *name, gpointer user_data);
-    static void name_acquired(GDBusConnection *connection,
-                              const gchar *name, gpointer user_data);
-    static void name_lost(GDBusConnection *connection,
-                          const gchar *name, gpointer user_data);
-};
-
-/*!
  * Base class for server-side D-Bus interfaces implementations.
  */
 class IfaceBase
@@ -161,10 +66,28 @@ class IfaceBase
         return static_cast<T *>(get_data_pointer(invocation));
     }
 
+    /*!
+     * Export an object implementing this interface on the given connection.
+     */
+    bool export_interface(GDBusConnection *connection) const
+    {
+        GError *error = nullptr;
+        if(g_dbus_interface_skeleton_export(get_interface_skeleton(),
+                                            connection, object_path_.c_str(),
+                                            &error))
+            return true;
+
+        /* TODO: handle error */
+        return false;
+    }
+
     const std::string &get_object_path() const { return object_path_; }
 
     static void method_fail(GDBusMethodInvocation *invocation,
                             const char *message, ...);
+
+  protected:
+    virtual GDBusInterfaceSkeleton *get_interface_skeleton() const = 0;
 
   private:
     void *get_data_pointer(GDBusMethodInvocation *invocation) const
@@ -221,21 +144,6 @@ class Iface: public IfaceBase
 
         g_object_unref(iface_);
         iface_ = nullptr;
-    }
-
-    /*!
-     * Export an object implementing this interface on the given connection.
-     */
-    bool export_interface(GDBusConnection *connection)
-    {
-        GError *error = nullptr;
-        if(g_dbus_interface_skeleton_export(G_DBUS_INTERFACE_SKELETON(iface_),
-                                            connection, object_path_.c_str(),
-                                            &error))
-            return true;
-
-        /* TODO: handle error */
-        return false;
     }
 
     /*!
@@ -310,6 +218,12 @@ class Iface: public IfaceBase
         log_assert(object == iface_);
         log_assert(g_dbus_method_invocation_get_object_path(invocation) == object_path_);
     }
+
+  protected:
+    GDBusInterfaceSkeleton *get_interface_skeleton() const final override
+    {
+        return G_DBUS_INTERFACE_SKELETON(iface_);
+    }
 };
 
 /*!
@@ -368,7 +282,7 @@ class Proxy: public ProxyBase
     {}
 
     void connect_proxy(GDBusConnection *connection,
-                       std::function<void(Proxy &proxy, bool)> &&notify)
+                       std::function<void(Proxy &proxy, bool)> &&notify = nullptr)
     {
         if(is_busy_)
         {
@@ -425,6 +339,107 @@ class Proxy: public ProxyBase
         const auto notify(std::move(notify_));
         notify(*this, result);
     }
+};
+
+/*!
+ * Observe presence of a specific name on a D-Bus connection.
+ *
+ * While it is perfectly possible to use watchers directly in client code,
+ * using #TDBus::Bus::add_watcher() is simpler and often sufficient.
+ */
+class PeerWatcher
+{
+  private:
+    const std::string name_;
+    const std::function<void(GDBusConnection *, const char *)> name_appeared_;
+    const std::function<void(GDBusConnection *, const char *)> name_vanished_;
+
+    guint watcher_id_;
+
+  public:
+    PeerWatcher(const PeerWatcher &) = delete;
+    PeerWatcher(PeerWatcher &&) = default;
+    PeerWatcher &operator=(const PeerWatcher &) = delete;
+    PeerWatcher &operator=(PeerWatcher &&) = default;
+
+    explicit PeerWatcher(const char *name,
+                         std::function<void(GDBusConnection *, const char *)> &&name_appeared,
+                         std::function<void(GDBusConnection *, const char *)> &&name_vanished):
+        name_(name),
+        name_appeared_(std::move(name_appeared)),
+        name_vanished_(std::move(name_vanished)),
+        watcher_id_(0)
+    {}
+
+    ~PeerWatcher() { stop(); }
+
+    void start(GDBusConnection *connection);
+    void stop();
+
+  private:
+    static void appeared(GDBusConnection *connection,
+                         const gchar *name, const gchar *name_owner,
+                         gpointer user_data);
+    static void vanished(GDBusConnection *connection,
+                         const gchar *name, gpointer user_data);
+};
+
+/*!
+ * D-Bus connection.
+ */
+class Bus
+{
+  public:
+    enum class Type
+    {
+        SESSION,
+        SYSTEM,
+    };
+
+  private:
+    const std::string object_name_;
+    const Type bus_type_;
+
+    std::function<void(GDBusConnection *)> on_connect_;
+    std::function<void(GDBusConnection *)> on_name_acquired_;
+    std::function<void(GDBusConnection *)> on_name_lost_;
+
+    guint owner_id_;
+    std::list<PeerWatcher> watchers_;
+    std::list<const IfaceBase *> interfaces_;
+
+  public:
+    Bus(const Bus &) = delete;
+    Bus(Bus &&) = default;
+    Bus &operator=(const Bus &) = delete;
+    Bus &operator=(Bus &&) = default;
+
+    explicit Bus(const char *object_name, Type t);
+    ~Bus();
+
+    void add_watcher(const char *name,
+                     std::function<void(GDBusConnection *, const char *)> &&appeared,
+                     std::function<void(GDBusConnection *, const char *)> &&vanished)
+    {
+        watchers_.emplace_back(name, std::move(appeared), std::move(vanished));
+    }
+
+    void add_auto_exported_interface(const IfaceBase &iface)
+    {
+        interfaces_.push_back(&iface);
+    }
+
+    bool connect(std::function<void(GDBusConnection *)> &&on_connect,
+                 std::function<void(GDBusConnection *)> &&on_name_acquired,
+                 std::function<void(GDBusConnection *)> &&on_name_lost);
+
+  private:
+    static void bus_acquired(GDBusConnection *connection,
+                             const gchar *name, gpointer user_data);
+    static void name_acquired(GDBusConnection *connection,
+                              const gchar *name, gpointer user_data);
+    static void name_lost(GDBusConnection *connection,
+                          const gchar *name, gpointer user_data);
 };
 
 }

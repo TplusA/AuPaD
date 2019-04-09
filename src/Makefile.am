@@ -31,6 +31,7 @@ bin_PROGRAMS = aupad
 
 aupad_SOURCES = \
     aupad.cc debug_levels.cc \
+    dbus.hh dbus.cc \
     messages.h messages.c messages_glib.h messages_glib.c os.h os.c
 
 aupad_LDADD = $(AUPAD_DEPENDENCIES_LIBS)

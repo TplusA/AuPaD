@@ -111,6 +111,9 @@ void TDBus::Bus::bus_acquired(GDBusConnection *connection,
     if(bus.on_connect_ != nullptr)
         bus.on_connect_(connection);
 
+    for(const auto &i : bus.interfaces_)
+        i->export_interface(connection);
+
     for(auto &w : bus.watchers_)
         w.start(connection);
 }

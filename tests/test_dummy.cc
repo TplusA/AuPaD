@@ -41,13 +41,19 @@ guint g_bus_own_name(GBusType, const gchar *, GBusNameOwnerFlags,
     FAIL("unexpected");
     return 0;
 }
-guint g_bus_watch_name_on_connection(GDBusConnection *, const gchar *,
-                                     GBusNameWatcherFlags, GBusNameAppearedCallback,
-                                     GBusNameVanishedCallback, gpointer,
-                                     GDestroyNotify)
+guint g_bus_watch_name_on_connection(
+        GDBusConnection *, const gchar *, GBusNameWatcherFlags,
+        GBusNameAppearedCallback, GBusNameVanishedCallback, gpointer,
+        GDestroyNotify)
 {
     FAIL("unexpected");
     return 0;
+}
+gboolean g_dbus_interface_skeleton_export(
+        GDBusInterfaceSkeleton *, GDBusConnection *, const gchar *, GError **)
+{
+    FAIL("unexpected");
+    return FALSE;
 }
 
 
