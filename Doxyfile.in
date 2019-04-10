@@ -795,6 +795,7 @@ RECURSIVE              = YES
 
 EXCLUDE                = \
     @abs_builddir@/src/dbus \
+    @abs_srcdir@/src/json.hh \
     @abs_srcdir@/dbus_interfaces/de_tahifi_lists_errors.hh
 
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
@@ -1987,7 +1988,8 @@ PREDEFINED             = DE_TAHIFI_LISTS_ERRORS_ENUM_NAME:=Code \
                          DE_TAHIFI_ARTCACHE_READ_ERRORS_ENUM_NAME:=Code \
                          DE_TAHIFI_ARTCACHE_READ_ERRORS_ENUM_VALUE(V):=V \
                          DE_TAHIFI_ARTCACHE_MONITOR_ERRORS_ENUM_NAME:=Code \
-                         DE_TAHIFI_ARTCACHE_MONITOR_ERRORS_ENUM_VALUE(V):=V
+                         DE_TAHIFI_ARTCACHE_MONITOR_ERRORS_ENUM_VALUE(V):=V \
+                         _MSC_VER:=0
 
 # If the MACRO_EXPANSION and EXPAND_ONLY_PREDEF tags are set to YES then this
 # tag can be used to specify a list of macro names that should be expanded. The

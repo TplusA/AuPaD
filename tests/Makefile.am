@@ -20,7 +20,7 @@
 #
 
 if WITH_DOCTEST
-check_PROGRAMS = test_dummy
+check_PROGRAMS = test_configstore
 
 TESTS = run_tests.sh
 
@@ -42,16 +42,16 @@ noinst_LTLIBRARIES = libtestrunner.la
 
 libtestrunner_la_SOURCES = testrunner.cc
 
-test_dummy_SOURCES = \
-    test_dummy.cc \
+test_configstore_SOURCES = \
+    test_configstore.cc \
     mock_os.hh mock_os.cc \
     mock_messages.hh mock_messages.cc \
     mock_expectation.hh
-test_dummy_LDADD = \
+test_configstore_LDADD = \
     libtestrunner.la \
-    $(top_builddir)/src/dbus/libtaddybus.la
-test_dummy_CPPFLAGS = $(AM_CPPFLAGS) $(AUPAD_DEPENDENCIES_CFLAGS)
-test_dummy_CXXFLAGS = $(AM_CXXFLAGS)
+    $(top_builddir)/src/libconfigstore.la
+test_configstore_CPPFLAGS = $(AM_CPPFLAGS)
+test_configstore_CXXFLAGS = $(AM_CXXFLAGS)
 
 doctest: $(check_PROGRAMS)
 	for p in $(check_PROGRAMS); do \

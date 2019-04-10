@@ -30,11 +30,19 @@ AM_CPPFLAGS = $(AUPAD_DEPENDENCIES_CFLAGS)
 bin_PROGRAMS = aupad
 
 aupad_SOURCES = \
-    aupad.cc debug_levels.cc \
-    dbus.hh dbus.cc \
+    aupad.cc \
+    configstore.hh json.hh error.hh \
+    dbus.hh dbus.cc debug_levels.cc \
     messages.h messages.c messages_glib.h messages_glib.c os.h os.c
+aupad_LDADD = $(AUPAD_DEPENDENCIES_LIBS) $(noinst_LTLIBRARIES)
 
-aupad_LDADD = $(AUPAD_DEPENDENCIES_LIBS)
+noinst_LTLIBRARIES = libconfigstore.la
+
+libconfigstore_la_SOURCES = \
+    configstore.cc configstore.hh configvalue.hh fixpoint.hh \
+    configstore_json.hh configstore_changes.hh
+libconfigstore_la_CPPFLAGS = $(AM_CPPFLAGS)
+libconfigstore_la_CXXFLAGS = $(AM_CXXFLAGS)
 
 LIBS += \
     dbus/libtaddybus.la \
