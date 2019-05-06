@@ -34,6 +34,31 @@ class Changes;
 class Settings;
 
 /*!
+ * Read-only wrapper around #ConfigStore::Settings for direct use of JSON.
+ *
+ * \see
+ *     #ConfigStore::Settings
+ */
+class ConstSettingsJSON
+{
+  private:
+    const Settings &settings_;
+
+  public:
+    ConstSettingsJSON(const ConstSettingsJSON &) = delete;
+    ConstSettingsJSON(ConstSettingsJSON &&) = default;
+    ConstSettingsJSON &operator=(const ConstSettingsJSON &) = delete;
+    ConstSettingsJSON &operator=(ConstSettingsJSON &&) = default;
+
+    explicit ConstSettingsJSON(const Settings &settings):
+        settings_(settings)
+    {}
+
+    nlohmann::json json() const;
+    nlohmann::json retrieve_control_definition_from_model(const std::string &qualified_control_name) const;
+};
+
+/*!
  * Wrapper around #ConfigStore::Settings for direct use of JSON.
  *
  * This wrapper is a compile-time optimization. Including the json.hh file
@@ -45,6 +70,7 @@ class SettingsJSON
 {
   private:
     Settings &settings_;
+    ConstSettingsJSON const_settings_;
 
   public:
     SettingsJSON(const SettingsJSON &) = delete;
@@ -53,12 +79,13 @@ class SettingsJSON
     SettingsJSON &operator=(SettingsJSON &&) = default;
 
     explicit SettingsJSON(Settings &settings):
-        settings_(settings)
+        settings_(settings),
+        const_settings_(settings)
     {}
 
-    void update(const nlohmann::json &j);
-    nlohmann::json json() const;
+    const ConstSettingsJSON &const_iface() const { return const_settings_; }
 
+    void update(const nlohmann::json &j);
     bool extract_changes(Changes &changes);
 };
 

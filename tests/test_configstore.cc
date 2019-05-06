@@ -28,6 +28,7 @@
 #include "configstore.hh"
 #include "configstore_json.hh"
 #include "configstore_changes.hh"
+#include "device_models.hh"
 
 #include "mock_messages.hh"
 
@@ -36,11 +37,13 @@ TEST_SUITE_BEGIN("Configuration store");
 class Fixture
 {
   protected:
+    ConfigStore::DeviceModels models;
     ConfigStore::Settings settings;
     std::unique_ptr<MockMessages::Mock> mock_messages;
 
   public:
     explicit Fixture():
+        settings(models),
         mock_messages(std::make_unique<MockMessages::Mock>())
     {
         MockMessages::singleton = mock_messages.get();
@@ -80,7 +83,7 @@ class Fixture
         if(js == nullptr)
             CHECK(settings.json_string() == expected);
         else
-            CHECK(js->json() == expected);
+            CHECK(js->const_iface().json() == expected);
     }
 
     void bunch_of_connected_instances(bool clear_change_log = false);
@@ -1370,6 +1373,16 @@ TEST_CASE_FIXTURE(Fixture, "NOP reports are filtered out")
     ConfigStore::SettingsJSON js(settings);
     CHECK_FALSE(js.extract_changes(changes));
     }
+}
+
+TEST_CASE_FIXTURE(Fixture, "Clearing settings also clears the log")
+{
+    bunch_of_connected_instances();
+    settings.clear();
+    expect_equal(nlohmann::json({}));
+    ConfigStore::Changes changes;
+    ConfigStore::SettingsJSON js(settings);
+    CHECK_FALSE(js.extract_changes(changes));
 }
 
 TEST_SUITE_END();

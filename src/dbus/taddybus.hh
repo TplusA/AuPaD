@@ -25,9 +25,10 @@
 #include "messages.h"
 
 #include <string>
-#include <unordered_map>
 #include <list>
 #include <functional>
+#include <unordered_map>
+#include <memory>
 
 #include <gio/gio.h>
 
@@ -45,7 +46,6 @@ bool log_dbus_error(GError **error, const char *what);
 class IfaceBase
 {
   protected:
-    std::unordered_map<std::string, void *> user_data_pointers_;
     const std::string object_path_;
 
     explicit IfaceBase(std::string &&object_path):
@@ -59,12 +59,6 @@ class IfaceBase
     IfaceBase &operator=(IfaceBase &&) = default;
 
     virtual ~IfaceBase() = default;
-
-    template <typename T>
-    T *data(GDBusMethodInvocation *invocation) const
-    {
-        return static_cast<T *>(get_data_pointer(invocation));
-    }
 
     /*!
      * Export an object implementing this interface on the given connection.
@@ -88,14 +82,6 @@ class IfaceBase
 
   protected:
     virtual GDBusInterfaceSkeleton *get_interface_skeleton() const = 0;
-
-  private:
-    void *get_data_pointer(GDBusMethodInvocation *invocation) const
-    {
-        const auto it(user_data_pointers_.find(
-                        g_dbus_method_invocation_get_method_name(invocation)));
-        return it == user_data_pointers_.end() ? nullptr : it->second;
-    }
 };
 
 /*!
@@ -112,10 +98,18 @@ template <typename T> struct IfaceTraits;
  */
 template <typename T> struct MethodHandlerTraits;
 
+
+/*!
+ * Traits class for client-side D-Bus method calls.
+ *
+ * For use with #TDBus::Proxy.
+ */
+template <typename T> struct MethodCallerTraits;
+
 /*!
  * Traits class for client-side D-Bus signal implementation.
  *
- * For use with #TDBus::Iface.
+ * For use with #TDBus::Proxy.
  */
 template <typename T> struct SignalHandlerTraits;
 
@@ -128,10 +122,42 @@ template <typename T> struct SignalHandlerTraits;
 template <typename T, typename Traits = IfaceTraits<T>>
 class Iface: public IfaceBase
 {
+  public:
+    template <typename Tag, typename... UserDataT>
+    class MethodHandlerData
+    {
+      public:
+        Iface &iface;
+        std::tuple<UserDataT...> user_data;
+
+        explicit MethodHandlerData(Iface &i, UserDataT &&... d):
+            iface(i),
+            user_data(std::forward<UserDataT>(d)...)
+        {}
+
+        /*!
+         * Convenience template for calling #TDBus::Iface::method_done().
+         */
+        template <typename... Args>
+        void done(GDBusMethodInvocation *invocation, Args &&... args)
+        {
+            iface.method_done<Tag>(invocation, std::forward<Args>(args)...);
+        }
+    };
+
   private:
     T *iface_;
 
+    template <typename Tag, typename... UserDataT>
+    static void delete_handler_data(gpointer data, GClosure *closure)
+    {
+        delete static_cast<MethodHandlerData<Tag, UserDataT...> *>(data);
+    }
+
   public:
+    Iface(Iface &&src) = delete;
+    Iface &operator=(Iface &&src) = delete;
+
     explicit Iface(std::string &&object_path):
         IfaceBase(std::move(object_path)),
         iface_(Traits::skeleton_new())
@@ -155,7 +181,32 @@ class Iface: public IfaceBase
      * \p MHTraits.
      *
      * Note that the handler is shared among \e all connections and \e all
-     * objects implementing the D-Bus interface.
+     * objects implementing the D-Bus interface. It is also not possible to
+     * pass a user data pointer to the handler using this function. Use
+     * #TDBus::Iface::connect_method_handler() if you need more flexibility.
+     *
+     * \tparam Tag
+     *     A type used to identify a D-Bus method, usually a \c struct name
+     *     with no definition (incomplete type).
+     *
+     * \tparam MHTraits
+     *     Handler traits declaring the D-Bus method handler.
+     */
+    template <typename Tag, typename MHTraits = MethodHandlerTraits<Tag>>
+    void connect_method_handler_simple()
+    {
+        static_assert(std::is_same<typename MHTraits::IfaceType, T>::value,
+                      "Handler is not meant to be used with this interface");
+        g_signal_connect(iface_, MHTraits::glib_signal_name(),
+                         G_CALLBACK(MHTraits::simple_method_handler), this);
+    }
+
+    /*!
+     * Connect D-Bus method invocations to its handler.
+     *
+     * Calling this function means that the application is willing to handle
+     * D-Bus calls of the method associated with \p MHTraits. The caller must
+     * therefore pass a non-null handler of type \p MHTraits::HandlerType.
      *
      * \tparam Tag
      *     A type used to identify a D-Bus method, usually a \c struct name
@@ -164,18 +215,30 @@ class Iface: public IfaceBase
      * \tparam MHTraits
      *     Handler traits declaring the D-Bus method handler.
      *
+     * \param fn
+     *     Handler for the D-Bus method call. Its last parameter is a
+     *     #TDBus::Iface::MethodHandlerData object which contains a reference
+     *     to the #TDBus::Iface instance the method handler refers to. This
+     *     allows use of different method handlers for different D-Bus objects.
+     *
      * \param user_data
-     *     Optional pointer for use inside the handler. Use
-     *     #TDBus::IfaceBase::data() to get the pointer.
+     *     Optional pointer for use inside the handler. This pointer is passed
+     *     as part of a #TDBus::Iface::MethodHandlerData object as passed as
+     *     the handler's last parameter.
      */
-    template <typename Tag, typename MHTraits = MethodHandlerTraits<Tag>>
-    void connect_method_handler(void *user_data = nullptr)
+    template <typename Tag, typename... UserDataT,
+              typename MHTraits = MethodHandlerTraits<Tag>>
+    void connect_method_handler(typename MHTraits::template HandlerType<UserDataT...> fn,
+                                UserDataT &&... user_data)
     {
         static_assert(std::is_same<typename MHTraits::IfaceType, T>::value,
                       "Handler is not meant to be used with this interface");
-        user_data_pointers_[MHTraits::dbus_method_name()] = user_data;
-        g_signal_connect(iface_, MHTraits::glib_signal_name(),
-                         G_CALLBACK(MHTraits::handler), this);
+        g_signal_connect_data(
+            iface_, MHTraits::glib_signal_name(), G_CALLBACK(fn),
+            new MethodHandlerData<Tag, UserDataT...>(
+                    *this, std::forward<UserDataT>(user_data)...),
+            delete_handler_data<Tag, UserDataT...>,
+            GConnectFlags(0));
     }
 
     /*!
@@ -213,10 +276,12 @@ class Iface: public IfaceBase
         MHTraits::complete(iface_, invocation, std::forward<Args>(args)...);
     }
 
-    void sanitize(const T *object, GDBusMethodInvocation *invocation)
+    template <typename FN, typename... Args>
+    void emit(FN fn, Args &&... args)
     {
-        log_assert(object == iface_);
-        log_assert(g_dbus_method_invocation_get_object_path(invocation) == object_path_);
+        static_assert(!std::is_function<FN>::value,
+                      "First argument must be a function");
+        fn(iface_, std::forward<Args>(args)...);
     }
 
   protected:
@@ -244,8 +309,6 @@ class ProxyBase
     const std::string object_path_;
     bool is_busy_ = false;
 
-    std::unordered_map<std::string, void *> user_data_pointers_;
-
     explicit ProxyBase(std::string &&name, std::string &&object_path):
         name_(std::move(name)),
         object_path_(std::move(object_path)),
@@ -271,9 +334,85 @@ template <typename T> struct ProxyTraits;
 template <typename T, typename Traits = ProxyTraits<T>>
 class Proxy: public ProxyBase
 {
+  public:
+    template <typename Tag, typename... UserDataT>
+    class SignalHandlerData
+    {
+      public:
+        Proxy &proxy;
+        std::tuple<UserDataT...> user_data;
+
+        explicit SignalHandlerData(Proxy &p, UserDataT &&... d):
+            proxy(p),
+            user_data(std::forward<UserDataT>(d)...)
+        {}
+    };
+
+    class AsyncCall
+    {
+      private:
+        std::function<void(Proxy &, AsyncCall &)> done_;
+        GCancellable *cancellable_;
+        GAsyncResult *result_;
+
+      public:
+        AsyncCall(AsyncCall &&src):
+            done_(std::move(src.done_)),
+            cancellable_(src.cancellable_),
+            result_(src.result_)
+        {
+            src.cancellable_ = nullptr;
+            src.result_ = nullptr;
+        }
+
+        AsyncCall &operator=(AsyncCall &&src) = delete;
+
+        explicit AsyncCall(std::function<void(Proxy &, AsyncCall &)> &&done):
+            done_(std::move(done)),
+            cancellable_(g_cancellable_new()),
+            result_(nullptr)
+        {}
+
+        ~AsyncCall()
+        {
+            if(cancellable_ != nullptr)
+                g_object_unref(cancellable_);
+
+            if(result_ != nullptr)
+                g_object_unref(result_);
+        }
+
+        template <typename Tag, typename... Args,
+                  typename MCTraits = MethodCallerTraits<Tag>>
+        bool finish(Proxy &proxy, Args &&... args)
+        {
+            GError *error = nullptr;
+            MCTraits::finish(proxy.proxy_, std::forward<Args>(args)...,
+                             result_, &error);
+            result_ = nullptr;
+            return log_dbus_error(&error, "Async D-Bus call");
+        }
+
+        GCancellable *get_cancellable() const { return cancellable_; }
+
+        void put_result(Proxy &proxy, GAsyncResult *res)
+        {
+            result_ = res;
+            done_(proxy, *this);
+        }
+    };
+
   private:
     std::function<void(Proxy &proxy, bool)> notify_;
     T *proxy_;
+
+    std::unordered_map<AsyncCall *, std::unique_ptr<AsyncCall>> pending_calls_;
+
+    template <typename Tag, typename... UserDataT>
+    static void delete_handler_data(gpointer data, GClosure *closure)
+    {
+        delete static_cast<SignalHandlerData<Tag, UserDataT...> *>(data);
+    }
 
   public:
     explicit Proxy(std::string &&name, std::string &&object_path):
@@ -281,6 +420,22 @@ class Proxy: public ProxyBase
         proxy_(nullptr)
     {}
 
+    /*!
+     * Connect to a D-Bus object by creating a proxy object for it.
+     *
+     * This function returns immediately as the internal proxy object is
+     * created asynchronously.
+     *
+     * \param connection
+     *     The D-Bus connection the D-Bus object is expected to be found on.
+     *
+     * \param notify
+     *     An optional callback which is called when the internal D-Bus proxy
+     *     object has been created, or its creation has failed from some
+     *     reason. When called, a reference to this #TDBus::Proxy object will
+     *     be passed in its first argument, and the second argument will tell
+     *     whether or not the D-Bus proxy creation was successful.
+     */
     void connect_proxy(GDBusConnection *connection,
                        std::function<void(Proxy &proxy, bool)> &&notify = nullptr)
     {
@@ -305,17 +460,67 @@ class Proxy: public ProxyBase
     /*!
      * Connect D-Bus signal reception to its handler.
      *
-     * Like #TDBus::Iface::connect_method_handler(), but for D-Bus signals and
-     * using #TDBus::SignalHandlerTraits.
+     * Like #TDBus::Iface::connect_method_handler_simple(), but for D-Bus
+     * signals and using #TDBus::SignalHandlerTraits.
      */
     template <typename Tag, typename SHTraits = SignalHandlerTraits<Tag>>
-    void connect_signal_handler(void *user_data = nullptr)
+    void connect_signal_handler_simple()
     {
         static_assert(std::is_same<typename SHTraits::IfaceType, T>::value,
                       "Handler is not meant to be used with this interface");
-        user_data_pointers_[SHTraits::dbus_signal_name()] = user_data;
         g_signal_connect(proxy_, SHTraits::glib_signal_name(),
-                         G_CALLBACK(SHTraits::handler), this);
+                         G_CALLBACK(SHTraits::simple_signal_handler), this);
+    }
+
+    /*!
+     * Connect D-Bus signal reception to its handler.
+     *
+     * Like #TDBus::Iface::connect_method_handler(), but for D-Bus
+     * signals and using #TDBus::SignalHandlerTraits.
+     */
+    template <typename Tag, typename... UserDataT,
+              typename SHTraits = SignalHandlerTraits<Tag>>
+    void connect_signal_handler(typename SHTraits::template HandlerType<UserDataT...> fn,
+                                UserDataT &&... user_data)
+    {
+        static_assert(std::is_same<typename SHTraits::IfaceType, T>::value,
+                      "Handler is not meant to be used with this interface");
+        g_signal_connect_data(
+            proxy_, SHTraits::glib_signal_name(), G_CALLBACK(fn),
+            new SignalHandlerData<Tag, UserDataT...>(
+                    *this, std::forward<UserDataT>(user_data)...),
+            delete_handler_data<Tag, UserDataT...>,
+            GConnectFlags(0));
+    }
+
+    template <typename Tag, typename... Args,
+              typename MCTraits = MethodCallerTraits<Tag>>
+    void call_and_forget(Args &&... args)
+    {
+        static_assert(std::is_same<typename MCTraits::IfaceType, T>::value,
+                      "Call is not meant to be used with this interface");
+
+        if(proxy_ != nullptr)
+            MCTraits::invoke(proxy_, std::forward<Args>(args)...,
+                             nullptr, nullptr, nullptr);
+    }
+
+    template <typename Tag, typename... Args,
+              typename MCTraits = MethodCallerTraits<Tag>>
+    void call(std::function<void(Proxy &, AsyncCall &)> &&done, Args &&... args)
+    {
+        static_assert(std::is_same<typename MCTraits::IfaceType, T>::value,
+                      "Call is not meant to be used with this interface");
+
+        if(proxy_ == nullptr)
+            return;
+
+        auto c(std::make_unique<AsyncCall>(std::move(done)));
+        MCTraits::invoke(proxy_, std::forward<Args>(args)...,
+                         c->get_cancellable(), method_done,
+                         new std::pair<Proxy *, AsyncCall *>(this, c.get()));
+        auto *const cptr = c.get();
+        pending_calls_.emplace(cptr, std::move(c));
     }
 
   private:
@@ -338,6 +543,33 @@ class Proxy: public ProxyBase
 
         const auto notify(std::move(notify_));
         notify(*this, result);
+    }
+
+    static void method_done(GObject *source_object, GAsyncResult *res,
+                            gpointer user_data)
+    {
+        auto *const data(static_cast<std::pair<Proxy *, AsyncCall *> *>(user_data));
+        auto &proxy(*data->first);
+
+        if(proxy.pending_calls_.find(data->second) != proxy.pending_calls_.end())
+        {
+            try
+            {
+                data->second->put_result(proxy, res);
+            }
+            catch(const std::exception &e)
+            {
+                BUG("Exception thrown by method done handler: %s", e.what());
+            }
+
+            proxy.pending_calls_.erase(data->second);
+        }
+        else
+        {
+            /* stray return of already deleted async call */
+        }
+
+        delete data;
     }
 };
 

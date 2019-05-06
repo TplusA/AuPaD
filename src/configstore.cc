@@ -26,7 +26,9 @@
 #include "configstore.hh"
 #include "configstore_json.hh"
 #include "configstore_changes.hh"
+#include "configstore_iter.hh"
 #include "configvalue.hh"
+#include "device_models.hh"
 #include "messages.h"
 
 #include <list>
@@ -36,8 +38,11 @@
 
 /*
  * Must be sorted lexicographically for binary search.
+ *
+ * \see
+ *     https://dbus.freedesktop.org/doc/dbus-specification.html#idm477
  */
-const std::array<const std::pair<const char, const ConfigStore::ValueType>, 12>
+const std::array<const std::pair<const char, const ConfigStore::ValueType>, 13>
 ConfigStore::Value::TYPE_CODE_TO_VALUE_TYPE =
 {
     {
@@ -45,6 +50,7 @@ ConfigStore::Value::TYPE_CODE_TO_VALUE_TYPE =
         { 'D', ValueType::VT_TA_FIX_POINT },
         { 'Y', ValueType::VT_INT8 },
         { 'b', ValueType::VT_BOOL },
+        { 'd', ValueType::VT_DOUBLE },
         { 'i', ValueType::VT_INT32 },
         { 'n', ValueType::VT_INT16 },
         { 'q', ValueType::VT_UINT16 },
@@ -59,9 +65,9 @@ ConfigStore::Value::TYPE_CODE_TO_VALUE_TYPE =
 /*
  * Must be sorted according to #ConfigStore::Value.
  */
-const std::array<const char, 12> ConfigStore::Value::VALUE_TYPE_TO_TYPE_CODE
+const std::array<const char, 13> ConfigStore::Value::VALUE_TYPE_TO_TYPE_CODE
 {
-    '@', 's', 'b', 'Y', 'y', 'n', 'q', 'i', 'u', 'x', 't', 'D',
+    '@', 's', 'b', 'Y', 'y', 'n', 'q', 'i', 'u', 'x', 't', 'd', 'D',
 };
 
 namespace std
@@ -399,6 +405,7 @@ class Device
 class ConfigStore::Settings::Impl
 {
   private:
+    DeviceModels &models_;
     std::unordered_map<std::string, Device> devices_;
     std::unique_ptr<ChangeLog> log_;
 
@@ -407,10 +414,25 @@ class ConfigStore::Settings::Impl
     Impl(Impl &&) = default;
     Impl &operator=(const Impl &) = delete;
     Impl &operator=(Impl &&) = default;
-    explicit Impl() = default;
+
+    explicit Impl(DeviceModels &models):
+        models_(models)
+    {}
+
+    /*
+     * Create new object from old one, ditching most the old one's data.
+     * This is sort of a lossy move constructor.
+     */
+    static std::unique_ptr<Impl> make_fresh(std::unique_ptr<Impl> old)
+    {
+        return std::make_unique<Impl>(old->models_);
+    }
 
     void update(const nlohmann::json &j);
     nlohmann::json json() const;
+
+    const nlohmann::json &
+    retrieve_control_definition_from_model(const std::string &qualified_control_name) const;
 
     bool extract_changes(Changes &changes)
     {
@@ -420,6 +442,16 @@ class ConfigStore::Settings::Impl
         const bool result = log_ != nullptr ? log_->has_changes() : false;
         changes.reset(std::move(log_));
         return result;
+    }
+
+    const Device &get_device(const char *name) const
+    {
+        return devices_.at(name);
+    }
+
+    const Device &get_device(const std::string &name) const
+    {
+        return devices_.at(name);
     }
 
   private:
@@ -516,6 +548,12 @@ void ConfigStore::Value::validate() const
           default: os_abort();
         }
 #pragma GCC diagnostic pop
+
+        break;
+
+      case ValueType::VT_DOUBLE:
+        if(value_.is_number())
+            return;
 
         break;
 
@@ -825,6 +863,25 @@ get_device_and_element_name(const std::string &qualified_name,
 {
     const auto qname(split_qualified_name(qualified_name));
     const auto &device_name(std::get<0>(qname));
+
+    try
+    {
+        return std::make_tuple(std::ref(devices.at(device_name)), std::move(std::get<1>(qname)));
+    }
+    catch(const std::out_of_range &e)
+    {
+        /* handled below */
+    }
+
+    Error() << "unknown device \"" << device_name << "\"";
+}
+
+static std::tuple<const Device &, std::string>
+get_device_and_element_name(const std::string &qualified_name,
+                            const std::unordered_map<std::string, Device> &devices)
+{
+    const auto qname(split_qualified_name(qualified_name));
+    const auto &device_name(std::get<0>(qname));
     return std::make_tuple(std::ref(devices.at(device_name)), std::move(std::get<1>(qname)));
 }
 
@@ -1012,8 +1069,46 @@ nlohmann::json ConfigStore::Settings::Impl::json() const
     return result;
 }
 
-ConfigStore::Settings::Settings(): impl_(std::make_unique<Impl>()) {}
+const nlohmann::json &ConfigStore::Settings::Impl::retrieve_control_definition_from_model(const std::string &qualified_control_name) const
+{
+    static const nlohmann::json empty;
+
+    const auto dev_and_qualified_ctrlname(get_device_and_element_name(qualified_control_name, devices_));
+    const auto &model(models_.get_device_model(std::get<0>(dev_and_qualified_ctrlname).device_id_));
+
+    if(model.is_null())
+        return empty;
+
+    const auto &elemname_and_ctrlname(split_qualified_name(std::get<1>(dev_and_qualified_ctrlname)));
+    const auto &elemname(std::get<0>(elemname_and_ctrlname));
+    const auto &ctrlname(std::get<1>(elemname_and_ctrlname));
+
+    for(const auto &e : model.at("elements"))
+    {
+        try
+        {
+            if(e.at("id") == elemname)
+                return e.at("element").at("controls").at(ctrlname);
+        }
+        catch(...)
+        {
+            /* ignore */
+        }
+    }
+
+    return empty;
+}
+
+ConfigStore::Settings::Settings(ConfigStore::DeviceModels &models):
+    impl_(std::make_unique<Impl>(models))
+{}
+
 ConfigStore::Settings::~Settings() = default;
+
+void ConfigStore::Settings::clear()
+{
+    impl_ = Impl::make_fresh(std::move(impl_));
+}
 
 void ConfigStore::Settings::update(const std::string &d)
 {
@@ -1040,19 +1135,7 @@ std::string ConfigStore::Settings::json_string() const
     }
 }
 
-void ConfigStore::SettingsJSON::update(const nlohmann::json &j)
-{
-    try
-    {
-        settings_.impl_->update(j);
-    }
-    catch(const std::exception &e)
-    {
-        msg_error(0, LOG_NOTICE, "%s", e.what());
-    }
-}
-
-nlohmann::json ConfigStore::SettingsJSON::json() const
+nlohmann::json ConfigStore::ConstSettingsJSON::json() const
 {
     try
     {
@@ -1065,7 +1148,52 @@ nlohmann::json ConfigStore::SettingsJSON::json() const
     }
 }
 
+nlohmann::json ConfigStore::ConstSettingsJSON::retrieve_control_definition_from_model(const std::string &qualified_control_name) const
+{
+    try
+    {
+        return settings_.impl_->retrieve_control_definition_from_model(qualified_control_name);
+    }
+    catch(const std::exception &e)
+    {
+        msg_error(0, LOG_NOTICE, "%s", e.what());
+        return nlohmann::json();
+    }
+}
+
+void ConfigStore::SettingsJSON::update(const nlohmann::json &j)
+{
+    try
+    {
+        settings_.impl_->update(j);
+    }
+    catch(const std::exception &e)
+    {
+        msg_error(0, LOG_NOTICE, "%s", e.what());
+    }
+}
+
 bool ConfigStore::SettingsJSON::extract_changes(Changes &changes)
 {
     return settings_.impl_->extract_changes(changes);
+}
+
+ConfigStore::DeviceContext
+ConfigStore::SettingsIterator::with_device(const char *device_name) const
+{
+    return DeviceContext(settings_.impl_->get_device(device_name));
+}
+
+ConfigStore::DeviceContext
+ConfigStore::SettingsIterator::with_device(const std::string &device_name) const
+{
+    return DeviceContext(settings_.impl_->get_device(device_name));
+}
+
+void ConfigStore::DeviceContext::for_each_setting(const SettingReportFn &apply) const
+{
+    for(const auto &elem : device_.get_elements())
+        for(const auto &v : elem.second.get_values())
+            if(!apply(elem.second.name_, v.first, v.second))
+                return;
 }

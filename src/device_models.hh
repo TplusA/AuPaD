@@ -19,32 +19,34 @@
  * MA  02110-1301, USA.
  */
 
-#ifndef ERROR_HH
-#define ERROR_HH
+#ifndef DEVICE_MODELS_HH
+#define DEVICE_MODELS_HH
 
-#include <sstream>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch-enum"
+#include "json.hh"
+#pragma GCC diagnostic pop
 
-class Error
+namespace ConfigStore
+{
+
+class DeviceModels
 {
   private:
-    std::ostringstream os_;
+    nlohmann::json config_data_;
 
   public:
-    Error(const Error &) = delete;
-    Error(Error &&) = default;
-    Error &operator=(const Error &) = delete;
-    Error &operator=(Error &&) = default;
+    DeviceModels(const DeviceModels &) = delete;
+    DeviceModels(DeviceModels &&) = default;
+    DeviceModels &operator=(const DeviceModels &) = delete;
+    DeviceModels &operator=(DeviceModels &&) = default;
+    explicit DeviceModels() = default;
 
-    explicit Error() = default;
-
-    [[ noreturn ]] ~Error() noexcept(false) { throw std::runtime_error(os_.str()); }
-
-    template <typename T>
-    Error &operator<<(const T &d)
-    {
-        os_ << d;
-        return *this;
-    }
+    bool load(const std::string &config, bool suppress_error = false);
+    bool load(const char *config, bool suppress_error = false);
+    const nlohmann::json &get_device_model(const std::string &device_id) const;
 };
 
-#endif /* !ERROR_HH */
+}
+
+#endif /* !DEVICE_MODELS_HH */

@@ -25,6 +25,7 @@ DBUS_IFACES = $(top_srcdir)/dbus_interfaces
 
 noinst_LTLIBRARIES = \
     libtaddybus.la \
+    libaupad_dbus.la \
     libjsonio_dbus.la \
     libdebug_dbus.la
 
@@ -34,6 +35,12 @@ AM_CPPFLAGS = $(AUPAD_DEPENDENCIES_CFLAGS)
 
 libtaddybus_la_SOURCES = taddybus.cc taddybus.hh
 libtaddybus_la_CPPFLAGS = -I$(srcdir)/.. $(AM_CPPFLAGS)
+
+nodist_libaupad_dbus_la_SOURCES = aupad_dbus.c aupad_dbus.h
+libaupad_dbus_la_SOURCES = aupad_dbus.hh
+libaupad_dbus_la_CPPFLAGS = $(AM_CPPFLAGS)
+libaupad_dbus_la_CFLAGS = $(AM_CFLAGS)
+libaupad_dbus_la_CXXFLAGS = $(AM_CXXFLAGS)
 
 nodist_libjsonio_dbus_la_SOURCES = jsonio_dbus.c jsonio_dbus.h
 libjsonio_dbus_la_SOURCES = jsonio_dbus.hh
@@ -48,6 +55,10 @@ libdebug_dbus_la_CFLAGS = $(AM_CFLAGS)
 libdebug_dbus_la_CXXFLAGS = $(AM_CXXFLAGS)
 
 BUILT_SOURCES = \
+    $(nodist_libaupad_dbus_la_SOURCES) \
+    de_tahifi_aupad.h \
+    de_tahifi_aupad.md \
+    aupad_dbus.stamp \
     $(nodist_libjsonio_dbus_la_SOURCES) \
     de_tahifi_jsonio.h \
     de_tahifi_jsonio.md \
@@ -58,6 +69,15 @@ BUILT_SOURCES = \
     debug_dbus.stamp
 
 CLEANFILES = $(BUILT_SOURCES)
+
+de_tahifi_aupad.h: aupad_dbus.stamp
+de_tahifi_aupad.md: aupad_dbus.stamp
+aupad_dbus.c: aupad_dbus.stamp
+aupad_dbus.h: aupad_dbus.stamp
+aupad_dbus.stamp: $(DBUS_IFACES)/de_tahifi_aupad.xml
+	$(GDBUS_CODEGEN) --generate-c-code=aupad_dbus --c-namespace tdbus_aupad --interface-prefix de.tahifi.AuPaD. $<
+	$(DBUS_IFACES)/extract_documentation.py -i $< -o de_tahifi_aupad.md -H de_tahifi_aupad.h -c tdbus_aupad -s de.tahifi.AuPaD. -n "$(PACKAGE_NAME)"
+	touch $@
 
 de_tahifi_jsonio.h: jsonio_dbus.stamp
 de_tahifi_jsonio.md: jsonio_dbus.stamp

@@ -43,6 +43,7 @@ enum class ValueType
     VT_UINT32,
     VT_INT64,
     VT_UINT64,
+    VT_DOUBLE,
     VT_TA_FIX_POINT,
 
     VT_LAST_VALUE = VT_TA_FIX_POINT,
@@ -59,13 +60,13 @@ class Value
     ValueType type_;
     nlohmann::json value_;
 
-    static const std::array<const std::pair<const char, const ValueType>, 12>
+    static const std::array<const std::pair<const char, const ValueType>, 13>
     TYPE_CODE_TO_VALUE_TYPE;
     static_assert(TYPE_CODE_TO_VALUE_TYPE.size() == size_t(ValueType::VT_LAST_VALUE) + 1,
                   "unexpected array size");
 
 
-    static const std::array<const char, 12> VALUE_TYPE_TO_TYPE_CODE;
+    static const std::array<const char, 13> VALUE_TYPE_TO_TYPE_CODE;
     static_assert(VALUE_TYPE_TO_TYPE_CODE.size() == size_t(ValueType::VT_LAST_VALUE) + 1,
                   "unexpected array size");
 
@@ -86,6 +87,39 @@ class Value
 
     const auto &get_value() const { return value_; }
     const char get_type_code() const { return type_to_type_code(type_); }
+
+    nlohmann::json get_as(ValueType vt) const
+    {
+        switch(vt)
+        {
+          case ConfigStore::ValueType::VT_VOID:
+            break;
+
+          case ConfigStore::ValueType::VT_ASCIIZ:
+            return value_.get<std::string>();
+
+          case ConfigStore::ValueType::VT_BOOL:
+            return value_.get<bool>();
+
+          case ConfigStore::ValueType::VT_INT8:
+          case ConfigStore::ValueType::VT_INT16:
+          case ConfigStore::ValueType::VT_INT32:
+          case ConfigStore::ValueType::VT_INT64:
+            return value_.get<int64_t>();
+
+          case ConfigStore::ValueType::VT_UINT8:
+          case ConfigStore::ValueType::VT_UINT16:
+          case ConfigStore::ValueType::VT_UINT32:
+          case ConfigStore::ValueType::VT_UINT64:
+            return value_.get<uint64_t>();
+
+          case ConfigStore::ValueType::VT_DOUBLE:
+          case ConfigStore::ValueType::VT_TA_FIX_POINT:
+            return value_.get<double>();
+        }
+
+        return nullptr;
+    }
 
     static char type_to_type_code(ValueType vt)
     {
@@ -140,20 +174,33 @@ template <>
 struct ValueTypeTraits<ValueType::VT_UINT64>
 { using TargetType = uint64_t; using GetType = uint64_t; };
 
+template <>
+struct ValueTypeTraits<ValueType::VT_DOUBLE>
+{ using TargetType = double; using GetType = double; };
+
 template <ValueType VT, typename Traits = ValueTypeTraits<VT>>
-void range_check(const nlohmann::json &value)
+typename Traits::TargetType get_range_checked(const nlohmann::json &value)
 {
     const auto v(value.get<typename Traits::GetType>());
+
     if(v > std::numeric_limits<typename Traits::TargetType>::max() ||
-       v < std::numeric_limits<typename Traits::TargetType>::min())
+       v < std::numeric_limits<typename Traits::TargetType>::lowest())
     {
         Error() <<
             "value " << value << " out of range [" <<
-            typename Traits::GetType(std::numeric_limits<typename Traits::TargetType>::min()) <<
+            typename Traits::GetType(std::numeric_limits<typename Traits::TargetType>::lowest()) <<
             ", " <<
             typename Traits::GetType(std::numeric_limits<typename Traits::TargetType>::max()) <<
             "] according to type code " << Value::type_to_type_code(VT);
     }
+
+    return v;
+}
+
+template <ValueType VT, typename Traits = ValueTypeTraits<VT>>
+void range_check(const nlohmann::json &value)
+{
+    get_range_checked<VT>(value);
 }
 
 }

@@ -29,6 +29,8 @@ namespace ConfigStore
 {
 
 class SettingsJSON;
+class DeviceModels;
+class SettingsIterator;
 
 class Settings
 {
@@ -37,6 +39,8 @@ class Settings
     std::unique_ptr<Impl> impl_;
 
     friend class SettingsJSON;
+    friend class ConstSettingsJSON;
+    friend class SettingsIterator;
 
   public:
     Settings(const Settings &) = delete;
@@ -44,9 +48,10 @@ class Settings
     Settings &operator=(const Settings &) = delete;
     Settings &operator=(Settings &&) = default;
 
-    explicit Settings();
+    explicit Settings(DeviceModels &models);
     ~Settings();
 
+    void clear();
     void update(const std::string &d);
     std::string json_string() const;
 };

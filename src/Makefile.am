@@ -31,20 +31,34 @@ bin_PROGRAMS = aupad
 
 aupad_SOURCES = \
     aupad.cc \
-    configstore.hh json.hh error.hh \
+    configstore.hh device_models.hh json.hh error.hh \
     dbus.hh dbus.cc debug_levels.cc \
+    monitor_manager.cc monitor_manager.hh \
     messages.h messages.c messages_glib.h messages_glib.c os.h os.c
 aupad_LDADD = $(AUPAD_DEPENDENCIES_LIBS) $(noinst_LTLIBRARIES)
 
-noinst_LTLIBRARIES = libconfigstore.la
+noinst_LTLIBRARIES = \
+    libconfigstore_roon.la \
+    libconfigstore.la
 
 libconfigstore_la_SOURCES = \
     configstore.cc configstore.hh configvalue.hh fixpoint.hh \
-    configstore_json.hh configstore_changes.hh
+    configstore_plugin.cc configstore_plugin_manager.hh configstore_plugin.hh \
+    configstore_json.hh configstore_iter.hh configstore_changes.hh \
+    device_models.cc device_models.hh
 libconfigstore_la_CPPFLAGS = $(AM_CPPFLAGS)
 libconfigstore_la_CXXFLAGS = $(AM_CXXFLAGS)
 
+libconfigstore_roon_la_SOURCES = \
+    report_roon.cc report_roon.hh \
+    configstore_plugin.hh json.hh \
+    configstore.hh configvalue.hh fixpoint.hh \
+    configstore_json.hh configstore_iter.hh configstore_changes.hh
+libconfigstore_roon_la_CPPFLAGS = $(AM_CPPFLAGS)
+libconfigstore_roon_la_CXXFLAGS = $(AM_CXXFLAGS)
+
 LIBS += \
     dbus/libtaddybus.la \
+    dbus/libaupad_dbus.la \
     dbus/libjsonio_dbus.la \
     dbus/libdebug_dbus.la

@@ -69,7 +69,7 @@ static enum MessageVerboseLevel do_set_debug_level(const char *new_level_name)
 namespace TDBus
 {
 
-gboolean MethodHandlerTraits<DebugLoggingDebugLevel>::handler(
+gboolean MethodHandlerTraits<DebugLoggingDebugLevel>::simple_method_handler(
             IfaceType *const object, GDBusMethodInvocation *const invocation,
             const char *const arg_new_level,
             Iface<IfaceType> *const iface)
@@ -85,7 +85,7 @@ gboolean MethodHandlerTraits<DebugLoggingDebugLevel>::handler(
     return TRUE;
 }
 
-void SignalHandlerTraits<DebugLoggingConfigGlobalDebugLevelChanged>::handler(
+void SignalHandlerTraits<DebugLoggingConfigGlobalDebugLevelChanged>::simple_signal_handler(
             IfaceType *const object,
             const char *const new_level_name,
             Proxy<IfaceType> *const proxy)

@@ -24,7 +24,11 @@
 
 namespace TDBus
 {
-    void setup();
+    class Bus;
+
+    void setup(Bus &bus);
+    Bus &session_bus();
+    Bus &system_bus();
 }
 
 #endif /* !DBUS_CC */

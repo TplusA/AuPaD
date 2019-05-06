@@ -35,7 +35,9 @@ struct IfaceTraits<tdbusdebugLogging>
     static tdbusdebugLogging *skeleton_new() { return tdbus_debug_logging_skeleton_new(); }
 };
 
+
 struct DebugLoggingDebugLevel;
+
 template <>
 struct MethodHandlerTraits<DebugLoggingDebugLevel>
 {
@@ -45,20 +47,34 @@ struct MethodHandlerTraits<DebugLoggingDebugLevel>
   public:
     using IfaceType = tdbusdebugLogging;
 
-    static const char *dbus_method_name() { return "DebugLevel"; }
     static const char *glib_signal_name() { return "handle-debug-level"; }
 
-    static gboolean handler(IfaceType *const object,
-                            GDBusMethodInvocation *const invocation,
-                            const gchar *const arg_new_level,
-                            TDBus::Iface<IfaceType> *const iface);
+    template <typename... UserDataT>
+    using UserData = Iface<IfaceType>::MethodHandlerData<ThisMethod, UserDataT...>;
 
-    static void complete(IfaceType *object, GDBusMethodInvocation *invocation,
-                         const char *const name)
-    {
-        tdbus_debug_logging_complete_debug_level(object, invocation, name);
-    }
+    template <typename... UserDataT>
+    using HandlerType =
+        gboolean(IfaceType *const object, GDBusMethodInvocation *const invocation,
+                 const gchar *const arg_new_level,
+                 UserData<UserDataT...> *const d);
+
+    static gboolean simple_method_handler(
+            IfaceType *const object, GDBusMethodInvocation *const invocation,
+            const gchar *const arg_new_level,
+            Iface<IfaceType> *const iface);
+
+    static constexpr auto complete = tdbus_debug_logging_complete_debug_level;
 };
+
+template <>
+struct MethodCallerTraits<DebugLoggingDebugLevel>
+{
+  public:
+    using IfaceType = tdbusdebugLogging;
+    static constexpr auto invoke = tdbus_debug_logging_call_debug_level;
+    static constexpr auto finish = tdbus_debug_logging_call_debug_level_finish;
+};
+
 
 // D-Bus interface: de.tahifi.Debug.LoggingConfig
 template <>
@@ -77,18 +93,33 @@ struct ProxyTraits<tdbusdebugLoggingConfig>
     proxy_new_finish_fn() { return tdbus_debug_logging_config_proxy_new_finish; }
 };
 
+
 struct DebugLoggingConfigGlobalDebugLevelChanged;
+
 template <>
 struct SignalHandlerTraits<DebugLoggingConfigGlobalDebugLevelChanged>
 {
+  private:
+    using ThisSignal = DebugLoggingConfigGlobalDebugLevelChanged;
+
+  public:
     using IfaceType = tdbusdebugLoggingConfig;
 
-    static const char *dbus_signal_name() { return "GlobalDebugLevelChanged"; }
     static const char *glib_signal_name() { return "global-debug-level-changed"; }
 
-    static void handler(IfaceType *const object,
-                        const gchar *const new_level_name,
-                        TDBus::Proxy<IfaceType> *const proxy);
+    template <typename... UserDataT>
+    using UserData = Proxy<IfaceType>::SignalHandlerData<ThisSignal, UserDataT...>;
+
+    template <typename... UserDataT>
+    using HandlerType =
+        void(IfaceType *const object,
+             const gchar *const new_level_name,
+             UserData<UserDataT...> *const d);
+
+    static void simple_signal_handler(
+            IfaceType *const object,
+            const gchar *const new_level_name,
+            Proxy<IfaceType> *const proxy);
 };
 
 }

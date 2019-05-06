@@ -34,6 +34,7 @@ EXTRA_DIST += \
     tools/aupalc.py \
     tools/show_path.py \
     dbus_interfaces/extract_documentation.py \
+    dbus_interfaces/de_tahifi_aupad.xml \
     dbus_interfaces/de_tahifi_jsonio.xml
 
 BUILT_SOURCES = versioninfo.h

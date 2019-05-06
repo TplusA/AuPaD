@@ -45,7 +45,9 @@ struct ProxyTraits<tdbusJSONReceiver>
     proxy_new_finish_fn() { return tdbus_jsonreceiver_proxy_new_finish; }
 };
 
+
 struct JSONReceiverNotify;
+
 template <>
 struct MethodHandlerTraits<JSONReceiverNotify>
 {
@@ -55,22 +57,40 @@ struct MethodHandlerTraits<JSONReceiverNotify>
   public:
     using IfaceType = tdbusJSONReceiver;
 
-    static const char *dbus_method_name() { return "Notify"; }
     static const char *glib_signal_name() { return "handle-notify"; }
 
-    static gboolean handler(IfaceType *const object,
-                            GDBusMethodInvocation *const invocation,
-                            const gchar *const json,
-                            const gchar *const *const extra,
-                            TDBus::Iface<IfaceType> *const iface);
+    template <typename... UserDataT>
+    using UserData = Iface<IfaceType>::MethodHandlerData<ThisMethod, UserDataT...>;
 
-    static void complete(IfaceType *object, GDBusMethodInvocation *invocation)
-    {
-        tdbus_jsonreceiver_complete_notify(object, invocation);
-    }
+    template <typename... UserDataT>
+    using HandlerType =
+        gboolean(IfaceType *const object,
+                 GDBusMethodInvocation *const invocation,
+                 const gchar *const json,
+                 const gchar *const *const extra,
+                 UserData<UserDataT...> *const d);
+
+    static gboolean simple_method_handler(
+            IfaceType *const object, GDBusMethodInvocation *const invocation,
+            const gchar *const json,
+            const gchar *const *const extra,
+            Iface<IfaceType> *const iface);
+
+    static constexpr auto complete = tdbus_jsonreceiver_complete_notify;
 };
 
+template <>
+struct MethodCallerTraits<JSONReceiverNotify>
+{
+  public:
+    using IfaceType = tdbusJSONReceiver;
+    static constexpr auto invoke = tdbus_jsonreceiver_call_notify;
+    static constexpr auto finish = tdbus_jsonreceiver_call_notify_finish;
+};
+
+
 struct JSONReceiverTell;
+
 template <>
 struct MethodHandlerTraits<JSONReceiverTell>
 {
@@ -80,20 +100,35 @@ struct MethodHandlerTraits<JSONReceiverTell>
   public:
     using IfaceType = tdbusJSONReceiver;
 
-    static const char *dbus_method_name() { return "Tell"; }
     static const char *glib_signal_name() { return "handle-tell"; }
 
-    static gboolean handler(IfaceType *const object,
-                            GDBusMethodInvocation *const invocation,
-                            const gchar *const json,
-                            const gchar *const *const extra,
-                            TDBus::Iface<IfaceType> *const iface);
+    template <typename... UserDataT>
+    using UserData = Iface<IfaceType>::MethodHandlerData<ThisMethod, UserDataT...>;
 
-    static void complete(IfaceType *object, GDBusMethodInvocation *invocation,
-                         const gchar *const answer, const gchar *const *const extra)
-    {
-        tdbus_jsonreceiver_complete_tell(object, invocation, answer, extra);
-    }
+    template <typename... UserDataT>
+    using HandlerType =
+        gboolean(IfaceType *const object,
+                 GDBusMethodInvocation *const invocation,
+                 const gchar *const json,
+                 const gchar *const *const extra,
+                 UserData<UserDataT...> *const d);
+
+    static gboolean simple_method_handler(
+            IfaceType *const object, GDBusMethodInvocation *const invocation,
+            const gchar *const json,
+            const gchar *const *const extra,
+            Iface<IfaceType> *const iface);
+
+    static constexpr auto complete = tdbus_jsonreceiver_complete_tell;
+};
+
+template <>
+struct MethodCallerTraits<JSONReceiverTell>
+{
+  public:
+    using IfaceType = tdbusJSONReceiver;
+    static constexpr auto invoke = tdbus_jsonreceiver_call_tell;
+    static constexpr auto finish = tdbus_jsonreceiver_call_tell_finish;
 };
 
 
@@ -114,7 +149,9 @@ struct ProxyTraits<tdbusJSONEmitter>
     proxy_new_finish_fn() { return tdbus_jsonemitter_proxy_new_finish; }
 };
 
+
 struct JSONEmitterGet;
+
 template <>
 struct MethodHandlerTraits<JSONEmitterGet>
 {
@@ -124,33 +161,62 @@ struct MethodHandlerTraits<JSONEmitterGet>
   public:
     using IfaceType = tdbusJSONEmitter;
 
-    static const char *dbus_method_name() { return "Get"; }
     static const char *glib_signal_name() { return "handle-get"; }
 
-    static gboolean handler(IfaceType *const object,
-                            GDBusMethodInvocation *const invocation,
-                            const gchar *const *const params,
-                            TDBus::Iface<IfaceType> *const iface);
+    template <typename... UserDataT>
+    using UserData = Iface<IfaceType>::MethodHandlerData<ThisMethod, UserDataT...>;
 
-    static void complete(IfaceType *object, GDBusMethodInvocation *invocation,
-                         const gchar *const json, const gchar *const *const extra)
-    {
-        tdbus_jsonemitter_complete_get(object, invocation, json, extra);
-    }
+    template <typename... UserDataT>
+    using HandlerType =
+        gboolean(IfaceType *const object,
+                 GDBusMethodInvocation *const invocation,
+                 const gchar *const *const params,
+                 UserData<UserDataT...> *const d);
+
+    static gboolean simple_method_handler(
+            IfaceType *const object, GDBusMethodInvocation *const invocation,
+            const gchar *const *const params,
+            Iface<IfaceType> *const iface);
+
+    static constexpr auto complete = tdbus_jsonemitter_complete_get;
 };
 
+template <>
+struct MethodCallerTraits<JSONEmitterGet>
+{
+  public:
+    using IfaceType = tdbusJSONEmitter;
+    static constexpr auto invoke = tdbus_jsonemitter_call_get;
+    static constexpr auto finish = tdbus_jsonemitter_proxy_new_finish;
+};
+
+
 struct JSONEmitterObject;
+
 template <>
 struct SignalHandlerTraits<JSONEmitterObject>
 {
+  private:
+    using ThisSignal = JSONEmitterObject;
+
+  public:
     using IfaceType = tdbusJSONEmitter;
 
-    static const char *dbus_signal_name() { return "Object"; }
     static const char *glib_signal_name() { return "object"; }
 
-    static void handler(IfaceType *const object,
-                        const gchar *json, const gchar *const *const extra,
-                        TDBus::Proxy<IfaceType> *const proxy);
+    template <typename... UserDataT>
+    using UserData = Proxy<IfaceType>::SignalHandlerData<ThisSignal, UserDataT...>;
+
+    template <typename... UserDataT>
+    using HandlerType =
+        void(IfaceType *const object,
+             const gchar *json, const gchar *const *const extra,
+             UserData<UserDataT...> *const d);
+
+    static void simple_signal_handler(
+            IfaceType *const object,
+            const gchar *json, const gchar *const *const extra,
+            Proxy<IfaceType> *const proxy);
 };
 
 }

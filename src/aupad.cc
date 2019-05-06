@@ -23,7 +23,15 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include "configstore_plugin_manager.hh"
+#include "configstore.hh"
+#include "configstore_changes.hh"
+#include "configstore_json.hh"
+#include "device_models.hh"
+#include "report_roon.hh"
 #include "dbus.hh"
+#include "dbus/jsonio_dbus.hh"
+#include "monitor_manager.hh"
 #include "messages.h"
 #include "messages_glib.h"
 #include "versioninfo.h"
@@ -53,6 +61,7 @@ struct Parameters
 {
     bool run_in_foreground_;
     MessageVerboseLevel verbose_level_;
+    const char *device_models_file_;
 
     Parameters(const Parameters &) = delete;
     Parameters(Parameters &&) = default;
@@ -61,7 +70,8 @@ struct Parameters
 
     explicit Parameters():
         run_in_foreground_(false),
-        verbose_level_(MESSAGE_LEVEL_NORMAL)
+        verbose_level_(MESSAGE_LEVEL_NORMAL),
+        device_models_file_("/var/local/etc/models.json")
     {}
 };
 
@@ -76,6 +86,7 @@ static void usage(const char *program_name)
         "  --verbose lvl  Set verbosity level to given level.\n"
         "  --quiet        Short for \"--verbose quite\".\n"
         "  --fg           Run in foreground, don't run as daemon.\n"
+        "  --config       Path to device definitions configuration file.\n"
         ;
 }
 
@@ -125,6 +136,13 @@ static int process_command_line(int argc, char *argv[],
         }
         else if(strcmp(argv[i], "--quiet") == 0)
             parameters.verbose_level_ = MESSAGE_LEVEL_QUIET;
+        else if(strcmp(argv[i], "--config") == 0)
+        {
+            if(!check_argument(argc, argv, i))
+                return -1;
+
+            parameters.device_models_file_ = argv[i];
+        }
         else
         {
             std::cerr << "Unknown option \"" << argv[i]
@@ -161,6 +179,178 @@ static bool setup(const Parameters &parameters)
     return true;
 }
 
+static void process_dcpd_audio_path_update(
+        tdbusJSONEmitter *const object,
+        const gchar *const json,
+        const gchar *const *const extra,
+        TDBus::SignalHandlerTraits<TDBus::JSONEmitterObject>::template UserData<
+            ConfigStore::PluginManager &, ConfigStore::Settings &
+        > *const d)
+{
+    auto &settings(std::get<1>(d->user_data));
+
+    try
+    {
+        msg_info("Received audio path update");
+        msg_info("%s", json);
+        settings.update(json);
+    }
+    catch(const std::exception &e)
+    {
+        APPLIANCE_BUG("Failed processing audio path update: %s", e.what());
+        return;
+    }
+
+    ConfigStore::Changes changes;
+    ConfigStore::SettingsJSON js(settings);
+
+    if(js.extract_changes(changes))
+        std::get<0>(d->user_data).report_changes(settings, changes);
+}
+
+static void dcpd_appeared(GDBusConnection *connection,
+                          TDBus::Proxy<tdbusJSONReceiver> &requests_for_dcpd_proxy,
+                          TDBus::Proxy<tdbusJSONEmitter> &updates_from_dcpd_proxy,
+                          ConfigStore::PluginManager &pm,
+                          ConfigStore::Settings &settings)
+{
+    msg_vinfo(MESSAGE_LEVEL_DEBUG, "Connecting to DCPD (audio paths)");
+
+    requests_for_dcpd_proxy.connect_proxy(connection,
+        [] (TDBus::Proxy<tdbusJSONReceiver> &proxy, bool succeeded)
+        {
+            if(!succeeded)
+            {
+                msg_error(0, LOG_NOTICE,
+                          "Failed connecting to DCPD audio path requesting interface");
+                return;
+            }
+
+            static constexpr char request[] =
+                R"({"query": {"what": "full_audio_signal_path"}})";
+            const char *const empty_extra[] = {nullptr};
+            proxy.call_and_forget<TDBus::JSONReceiverNotify>(request, empty_extra);
+            msg_vinfo(MESSAGE_LEVEL_DEBUG,
+                      "Connected to DCPD audio path requesting interface");
+        });
+
+    updates_from_dcpd_proxy.connect_proxy(connection,
+        [&pm, &settings]
+        (TDBus::Proxy<tdbusJSONEmitter> &proxy, bool succeeded)
+        {
+            if(!succeeded)
+            {
+                msg_error(0, LOG_NOTICE,
+                          "Failed connecting to DCPD audio path update emitter");
+                return;
+            }
+
+            proxy.connect_signal_handler<TDBus::JSONEmitterObject>(
+                    process_dcpd_audio_path_update, pm, settings);
+            msg_vinfo(MESSAGE_LEVEL_DEBUG,
+                      "Connected to DCPD audio path update emitter");
+        });
+}
+
+/*
+ * Connections to DCPD: listen to audio path updates sent by DCPD (D-Bus
+ * signals that we receive and process) and get object that we can send update
+ * requests and other requests to (D-Bus methods sent by us)
+ */
+static void listen_to_dcpd_audio_path_updates(TDBus::Bus &bus,
+                                              ConfigStore::PluginManager &pm,
+                                              ConfigStore::Settings &settings)
+{
+    static TDBus::Proxy<tdbusJSONReceiver>
+    requests_for_dcpd_proxy("de.tahifi.Dcpd", "/de/tahifi/Dcpd/AudioPaths");
+    static TDBus::Proxy<tdbusJSONEmitter>
+    updates_from_dcpd_proxy("de.tahifi.Dcpd", "/de/tahifi/Dcpd/AudioPaths");
+
+    bus.add_watcher("de.tahifi.Dcpd",
+        [&pm, &settings]
+        (GDBusConnection *connection, const char *name)
+        {
+            dcpd_appeared(connection, requests_for_dcpd_proxy,
+                          updates_from_dcpd_proxy, pm, settings);
+        },
+        [&settings]
+        (GDBusConnection *connection, const char *name)
+        {
+            msg_vinfo(MESSAGE_LEVEL_DEBUG, "Lost DCPD (audio paths)");
+            settings.clear();
+        });
+}
+
+static gboolean get_full_roon_audio_path(
+        tdbusJSONEmitter *const object,
+        GDBusMethodInvocation *const invocation,
+        const gchar *const *const params,
+        TDBus::MethodHandlerTraits<TDBus::JSONEmitterGet>::template UserData<
+            const ConfigStore::RoonOutput &, const ConfigStore::Settings &
+        > *const d)
+{
+    static const char *const empty_extra[] = {nullptr};
+
+    std::string report;
+    if(std::get<0>(d->user_data).full_report(std::get<1>(d->user_data), report))
+        d->done(invocation, report.c_str(), empty_extra);
+    else
+        d->done(invocation, "[]", empty_extra);
+
+    return TRUE;
+}
+
+static void send_audio_signal_path_to_roon(const std::string &asp,
+                                           bool is_full_signal_path,
+                                           TDBus::Iface<tdbusJSONEmitter> &iface)
+{
+    const char *const extra[] =
+    {
+        is_full_signal_path ? "signal_path" : "update",
+        nullptr
+    };
+
+    iface.emit(tdbus_jsonemitter_emit_object, asp.c_str(), extra);
+}
+
+static std::unique_ptr<ConfigStore::RoonOutput>
+create_roon_plugin(TDBus::Bus &bus, MonitorManager &mm,
+                   const ConfigStore::Settings &settings)
+{
+    static constexpr char object_name[] = "/de/tahifi/AuPaD/Roon";
+
+    static TDBus::Iface<tdbusJSONReceiver> command_iface(object_name);
+    bus.add_auto_exported_interface(command_iface);
+
+    static TDBus::Iface<tdbusJSONEmitter> emitter_iface(object_name);
+    auto *work_around_gcc_bug = &emitter_iface;
+    auto roon(std::make_unique<ConfigStore::RoonOutput>(
+            [work_around_gcc_bug]
+            (const auto &asp, bool is_full_signal_path)
+            {
+                send_audio_signal_path_to_roon(asp, is_full_signal_path,
+                                               *work_around_gcc_bug);
+            }));
+    emitter_iface.connect_method_handler<TDBus::JSONEmitterGet>(
+        get_full_roon_audio_path,
+        *const_cast<const ConfigStore::RoonOutput *>(roon.get()), settings);
+    bus.add_auto_exported_interface(emitter_iface);
+
+    mm.mk_registration_interface(object_name, *roon);
+
+    bus.add_watcher("de.tahifi.Roon",
+        [] (GDBusConnection *connection, const char *name)
+        {
+            msg_vinfo(MESSAGE_LEVEL_DEBUG, "TARoon is running");
+        },
+        [] (GDBusConnection *connection, const char *name)
+        {
+            msg_vinfo(MESSAGE_LEVEL_DEBUG, "TARoon is not running");
+        });
+
+    return roon;
+}
+
 int main(int argc, char *argv[])
 {
     static Parameters parameters;
@@ -182,7 +372,18 @@ int main(int argc, char *argv[])
     if(!setup(parameters))
         return EXIT_FAILURE;
 
-    TDBus::setup();
+    TDBus::setup(TDBus::session_bus());
+
+    static ConfigStore::DeviceModels models;
+    models.load(parameters.device_models_file_);
+
+    static ConfigStore::Settings settings(models);
+
+    ConfigStore::PluginManager pm;
+    MonitorManager mm(TDBus::session_bus());
+    pm.register_plugin(create_roon_plugin(TDBus::session_bus(), mm, settings));
+
+    listen_to_dcpd_audio_path_updates(TDBus::session_bus(), pm, settings);
 
     auto *loop = g_main_loop_new(nullptr, false);
     g_main_loop_run(loop);

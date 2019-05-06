@@ -19,32 +19,41 @@
  * MA  02110-1301, USA.
  */
 
-#ifndef ERROR_HH
-#define ERROR_HH
+#ifndef CONFIGSTORE_PLUGIN_MANAGER_HH
+#define CONFIGSTORE_PLUGIN_MANAGER_HH
 
-#include <sstream>
+#include "configstore_plugin.hh"
 
-class Error
+#include <list>
+#include <memory>
+
+namespace ConfigStore
+{
+
+class Settings;
+
+class PluginManager
 {
   private:
-    std::ostringstream os_;
+    std::list<std::unique_ptr<Plugin>> plugins_;
 
   public:
-    Error(const Error &) = delete;
-    Error(Error &&) = default;
-    Error &operator=(const Error &) = delete;
-    Error &operator=(Error &&) = default;
+    PluginManager(const PluginManager &) = delete;
+    PluginManager(PluginManager &&) = default;
+    PluginManager &operator=(const PluginManager &) = delete;
+    PluginManager &operator=(PluginManager &&) = default;
+    explicit PluginManager() = default;
 
-    explicit Error() = default;
-
-    [[ noreturn ]] ~Error() noexcept(false) { throw std::runtime_error(os_.str()); }
-
-    template <typename T>
-    Error &operator<<(const T &d)
+    ~PluginManager()
     {
-        os_ << d;
-        return *this;
+        shutdown();
     }
+
+    void register_plugin(std::unique_ptr<Plugin> plugin);
+    void shutdown() noexcept;
+    void report_changes(const Settings &settings, const Changes &changes);
 };
 
-#endif /* !ERROR_HH */
+}
+
+#endif /* !CONFIGSTORE_PLUGIN_MANAGER_HH */
