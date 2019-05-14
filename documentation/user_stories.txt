@@ -1,0 +1,48 @@
+As a Roon certifier,
+I want the audio signal path being reported to Roon
+so that I can attest Roon Ready compliance.
+
+As a user,
+I want to see in the app the "exact" path of my audio signal through the system
+so that I can understand how my music is processed
+(and why I have paid so much for the equipment).
+
+As a user,
+I want to switch quickly between configurable tone presets in the app
+so that I can select presets matching my music and mood.
+
+As a system tester or hardware engineeer,
+I want to set up specific audio signal paths
+so that I can test if the hardware works as expected.
+
+As a software developer,
+I want to see the exact path of the audio signal in the log
+so that I can introspect and debug the system.
+
+As a software developer,
+I want to use the USB ports defined in the devices' audio signal path model
+so that USB ports can have proper names assigned (such as "Front USB").
+
+As a software developer,
+I want a formal specification for audio signal path models
+so that we can derive data exchange formats from specifications.
+
+As a software developer,
+I want a machine-readable modelling language for audio signal paths
+so that we can exchange model specifications across applications.
+
+As an app developer,
+I want to know the current audio path from source to sink via REST API
+so that I can find out which audio source is active.
+
+As an app developer,
+I want to extract the model for the current system topology via REST API
+so that I can figure out which audio sources exist.
+
+As an app developer,
+I want to extract the audio system topology via REST API
+so that the user can be informed which devices are working together.
+
+As an app developer,
+I want to extract the exact path of the audio signal via REST API
+so that I can process that path for visualization.
