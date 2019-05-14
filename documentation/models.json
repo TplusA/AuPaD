@@ -1,0 +1,882 @@
+{
+    "all_devices": {
+        "MP3100HV": {
+            "audio_sources": [
+                { "id": "digital_in_1" },
+                { "id": "digital_in_2" },
+                { "id": "digital_in_3" },
+                { "id": "digital_in_4" },
+                { "id": "digital_in_5" },
+                { "id": "tuner" },
+                { "id": "bluetooth" },
+                { "id": "disc_drive" },
+                { "id": "usb_dac_in" },
+                { "id": "strbo_i2s" },
+                { "id": "usb_hdd",      "parent": "strbo_i2s" },
+                { "id": "usb_wlan",     "parent": "strbo_i2s" },
+                { "id": "usb_ethernet", "parent": "strbo_i2s" },
+                { "id": "usb_front",    "parent": "strbo_i2s" }
+            ],
+            "audio_sinks": [
+                { "id": "analog_line_out" },
+                { "id": "digital_out" }
+            ],
+            "elements": [
+                {
+                    "id": "input_select",
+                    "element": {
+                        "description": "Selects digital audio source",
+                        "stereo_inputs": 10,
+                        "controls": {
+                            "sel": {
+                                "type": "choice",
+                                "choices": [
+                                    "digi1", "digi2", "digi3", "digi4",
+                                    "digi5", "strbo", "tuner", "bt", "dd",
+                                    "usb", "disabled"
+                                ]
+                            }
+                        }
+                    }
+                },
+                {
+                    "id": "dsd_select",
+                    "element": {
+                        "description": "Switches between PCM or DSD signal paths",
+                        "stereo_outputs": 2,
+                        "controls": {
+                            "dsd_mode": { "type": "on_off" }
+                        }
+                    }
+                },
+                {
+                    "id": "dsp",
+                    "element": {
+                        "description": "Digital Signal Processor",
+                        "controls": {
+                            "filter": {
+                                "label": "Oversampling Filter",
+                                "description": "Selects the PCM oversampling filter",
+                                "type": "choice",
+                                "choices": [ "fir_long", "fir_short", "iir_bezier", "bezier" ]
+                            },
+                            "phase_invert": {
+                                "label": "PCM phase invert",
+                                "description": "Enables signal phase inversion for PCM path",
+                                "type": "on_off"
+                            }
+                        }
+                    }
+                },
+                {
+                    "id": "dac",
+                    "element": { "description": "PCM/DSD DAC" }
+                },
+                {
+                    "id": "pcm_out_filter",
+                    "element": {
+                        "label": "PCM output filter",
+                        "controls": {
+                            "mode": {
+                                "type": "choice",
+                                "choices": [ "wide", "normal" ]
+                            }
+                        }
+                    }
+                },
+                {
+                    "id": "ta_dac",
+                    "element": {
+                        "description": "T+A DSD DAC",
+                        "controls": {
+                            "phase_invert": {
+                                "type": "on_off",
+                                "label": "DSD phase invert",
+                                "description": "Enables signal phase inversion for DSD path"
+                            }
+                        }
+                    }
+                },
+                {
+                    "id": "dsd_out_filter",
+                    "element": {
+                        "label": "DSD output filter",
+                        "controls": {
+                            "mode": {
+                                "type": "choice",
+                                "choices": [ "wide", "normal" ]
+                            }
+                        }
+                    }
+                }
+            ],
+            "audio_signal_paths": [
+                {
+                    "connections": {
+                        "digital_in_1":        "input_select.in0",
+                        "digital_in_2":        "input_select.in1",
+                        "digital_in_3":        "input_select.in2",
+                        "digital_in_4":        "input_select.in3",
+                        "digital_in_5":        "input_select.in4",
+                        "strbo_i2s":           "input_select.in5",
+                        "tuner":               "input_select.in6",
+                        "bluetooth":           "input_select.in7",
+                        "disc_drive":          "input_select.in8",
+                        "usb_dac_in":          "input_select.in9",
+                        "input_select.out0":   "digital_out",
+                        "input_select.out1":   "dsd_select",
+                        "dsd_select.out0":     "ta_dac",
+                        "dsd_select.out1":     [ "dsp", "digital_out" ],
+                        "dsp":                 "dac",
+                        "dac":                 "pcm_out_filter",
+                        "pcm_out_filter":      "analog_line_out",
+                        "ta_dac":              "dsd_out_filter",
+                        "dsd_out_filter":      "analog_line_out"
+                    }
+                },
+                {
+                    "io_mapping": {
+                        "select": "input_select@sel",
+                        "mapping": "mux",
+                        "mapping_table": {
+                            "disabled": [
+                                "input_select.in0", null,
+                                "input_select.in1", null,
+                                "input_select.in2", null,
+                                "input_select.in3", null,
+                                "input_select.in4", null,
+                                "input_select.in5", null,
+                                "input_select.in6", null,
+                                "input_select.in7", null,
+                                "input_select.in8", null,
+                                "input_select.in9", null
+                            ]
+                        }
+                    }
+                },
+                {
+                    "io_mapping": {
+                        "select": "dsd_select@dsd_mode",
+                        "mapping": "demux"
+                    }
+                }
+            ],
+            "signal_types": [
+                {
+                    "elements": [
+                        "digital_in_1", "digital_in_2", "digital_in_3",
+                        "digital_in_4", "digital_in_5", "strbo_i2s",
+                        "tuner", "bluetooth", "disc_drive",
+                        "input_select.out0"
+                    ],
+                    "output_type": "pcm"
+                },
+                {
+                    "elements": [ "digital_out" ],
+                    "input_type": "pcm"
+                },
+                {
+                    "elements": [ "analog_line_out" ],
+                    "input_type": "analog_low_power"
+                },
+                {
+                    "elements": [ "usb_dac_in", "input_select.out1" ],
+                    "output_types": [ "pcm", "dsd" ]
+                },
+                {
+                    "elements": [ "dsd_select" ],
+                    "input_types": [ "pcm", "dsd" ]
+                },
+                {
+                    "elements": [ "dsd_select.out0" ],
+                    "output_type": "dsd"
+                },
+                {
+                    "elements": [ "dsd_select.out1" ],
+                    "output_type": "pcm"
+                },
+                {
+                    "elements": [ "dac" ],
+                    "input_type": "pcm",
+                    "output_type": "analog_low_power"
+                },
+                {
+                    "elements": [ "ta_dac" ],
+                    "input_type": "dsd",
+                    "output_type": "analog_low_power"
+                }
+            ],
+            "usb_connectors": [
+                {
+                    "id": "ethernet",
+                    "label": "Ethernet",
+                    "device_path": "/sys/bus/usb/devices/1-1.1:1.0",
+                    "location": "internal",
+                    "audio_source": "usb_ethernet"
+                },
+                {
+                    "id": "wlan",
+                    "label": "WLAN",
+                    "device_path": "/sys/bus/usb/devices/1-1.2:1.0",
+                    "location": "rear",
+                    "audio_source": "usb_wlan"
+                },
+                {
+                    "id": "hdd",
+                    "label": "HDD",
+                    "device_path": "/sys/bus/usb/devices/1-1.3:1.0",
+                    "location": "rear",
+                    "audio_source": "usb_hdd"
+                },
+                {
+                    "id": "internal",
+                    "label": "Unconnected",
+                    "device_path": "/sys/bus/usb/devices/1-1.4:1.0",
+                    "location": "none"
+                },
+                {
+                    "id": "front",
+                    "label": "USB IN",
+                    "device_path": "/sys/bus/usb/devices/1-1.5:1.0",
+                    "location": "front",
+                    "audio_source": "usb_front"
+                }
+            ]
+        },
+        "PA3100HV": {
+            "audio_sources": [
+                { "id": "analog_in_1" },
+                { "id": "analog_in_2" },
+                { "id": "analog_in_3" },
+                { "id": "analog_in_4" },
+                { "id": "analog_in_5" },
+                { "id": "analog_in_6" },
+                { "id": "recorder_in" }
+            ],
+            "audio_sinks": [
+                { "id": "speaker_out" },
+                { "id": "pre_out" },
+                { "id": "record_out" }
+            ],
+            "elements": [
+                {
+                    "id": "input_select",
+                    "element": {
+                        "description": "Selects analog audio source",
+                        "stereo_inputs": 7,
+                        "controls": {
+                            "sel": {
+                                "type": "choice",
+                                "choices": [
+                                    "a", "b", "c", "d", "e", "f", "r"
+                                ]
+                            }
+                        }
+                    }
+                },
+                {
+                    "id": "pre_out_enable",
+                    "element": {
+                        "label": "Pre Out Enable",
+                        "controls": { "enable": { "type": "on_off" } }
+                    }
+                },
+                {
+                    "id": "input_volume",
+                    "element": {
+                        "description": "Controls the volume of the input signal",
+                        "controls": {
+                            "volume_l": {
+                                "type": "range", "value_type": "y",
+                                "min": 0, "max": 99, "step": 1, "scale": "steps",
+                                "neutral_setting": 99
+                            },
+                            "volume_r": {
+                                "type": "range", "value_type": "y",
+                                "min": 0, "max": 99, "step": 1, "scale": "steps",
+                                "neutral_setting": 99
+                            }
+                        }
+                    }
+                },
+                {
+                    "id": "tone_ctl_select",
+                    "element": {
+                        "label": "Tone Control Enable",
+                        "description": "Enable tone control processing",
+                        "stereo_outputs": 2,
+                        "controls": { "enable": { "type": "on_off" } }
+                    }
+                },
+                {
+                    "id": "loudness_select",
+                    "element": {
+                        "label": "Loudness Enable",
+                        "description": "Enable loudness processing",
+                        "stereo_outputs": 2,
+                        "controls": { "enable": { "type": "on_off" } }
+                    }
+                },
+                {
+                    "id": "eq_select",
+                    "element": {
+                        "label": "Equalizer Enable",
+                        "description": "Enable equalizer processing",
+                        "stereo_outputs": 2,
+                        "controls": { "enable": { "type": "on_off" } }
+                    }
+                },
+                {
+                    "id": "tone_ctl",
+                    "element": {
+                        "label": "Tone Control",
+                        "description": "Controls the treble and bass of the signal",
+                        "controls": {
+                            "treble_l": {
+                                "label": "Treble Left",
+                                "description": "Treble setting for left channel",
+                                "type": "range", "value_type": "Y",
+                                "min": -6, "max": 8, "step": 1, "scale": "steps",
+                                "neutral_setting": 0
+                            },
+                            "treble_r": {
+                                "label": "Treble Right",
+                                "description": "Treble setting for right channel",
+                                "type": "range", "value_type": "Y",
+                                "min": -6, "max": 8, "step": 1, "scale": "steps",
+                                "neutral_setting": 0
+                            },
+                            "bass_l": {
+                                "label": "Bass Left",
+                                "description": "Bass setting for left channel",
+                                "type": "range", "value_type": "Y",
+                                "min": -6, "max": 8, "step": 1, "scale": "steps",
+                                "neutral_setting": 0
+                            },
+                            "bass_r": {
+                                "label": "Bass Right",
+                                "description": "Bass setting for right channel",
+                                "type": "range", "value_type": "Y",
+                                "min": -6, "max": 8, "step": 1, "scale": "steps",
+                                "neutral_setting": 0
+                            }
+                        }
+                    }
+                },
+                {
+                    "id": "loudless",
+                    "element": {
+                        "label": "Loudness Level",
+                        "description": "Controls the loudless level",
+                        "controls": {
+                            "level": {
+                                "type": "range", "value_type": "Y",
+                                "min": -10, "max": 10, "step": 1, "scale": "steps",
+                                "neutral_setting": 0
+                            }
+                        }
+                    }
+                },
+                {
+                    "id": "eq1",
+                    "element": {
+                        "predefined": "PA3100HV.equalizer",
+                        "label": "Equalizer 1",
+                        "description": "Equalizer for range 25 Hz through 65 Hz",
+                        "hz_table": [ 25, 30, 35, 40, 45, 50, 55, 60, 65 ]
+                    }
+                },
+                {
+                    "id": "eq2",
+                    "element": {
+                        "predefined": "PA3100HV.equalizer",
+                        "label": "Equalizer 2",
+                        "description": "Equalizer for range 50 Hz through 100 Hz",
+                        "hz_table": [ 50, 55, 60, 65, 70, 75, 80, 90, 100 ]
+                    }
+                },
+                {
+                    "id": "eq3",
+                    "element": {
+                        "predefined": "PA3100HV.equalizer",
+                        "label": "Equalizer 3",
+                        "description": "Equalizer for range 80 Hz through 200 Hz",
+                        "hz_table": [ 80, 90, 100, 110, 120, 140, 160, 180, 200 ]
+                    }
+                },
+                {
+                    "id": "amp",
+                    "element": { "description": "Amplifier" }
+                }
+            ],
+            "audio_signal_paths": [
+                {
+                    "connections": {
+                        "analog_in_1": "input_select.a",
+                        "analog_in_2": "input_select.b",
+                        "analog_in_3": "input_select.c",
+                        "analog_in_4": "input_select.d",
+                        "analog_in_5": "input_select.e",
+                        "analog_in_6": "input_select.f",
+                        "recorder_in": "input_select.r",
+                        "input_select": [ "record_out", "input_volume" ],
+                        "input_volume": [ "pre_out_enable", "tone_ctl_select" ],
+                        "pre_out_enable": "pre_out",
+                        "tone_ctl_select.out0": "tone_ctl",
+                        "tone_ctl_select.out1": "loudness_select",
+                        "tone_ctl": "loudness_select",
+                        "loudness_select.out0": "loudless",
+                        "loudness_select.out1": "eq_select",
+                        "loudless": "eq_select",
+                        "eq_select.out0": [ "eq1", "eq2", "eq3" ],
+                        "eq_select.out1": "amp",
+                        "eq1": "amp",
+                        "eq2": "amp",
+                        "eq3": "amp",
+                        "amp": "speaker_out"
+                    }
+                },
+                {
+                    "io_mapping": {
+                        "select": "input_select@sel",
+                        "mapping": "mux"
+                    }
+                },
+                {
+                    "io_mapping": {
+                        "select": "pre_out_enable@enable",
+                        "mapping": "table",
+                        "mapping_table": {
+                            "on":  [ "pre_out_enable.in0", "pre_out_enable.out0" ],
+                            "off": [ "pre_out_enable.in0", null ]
+                        }
+                    }
+                },
+                {
+                    "io_mapping": {
+                        "select": "tone_ctl_select@enable",
+                        "mapping": "demux"
+                    }
+                },
+                {
+                    "io_mapping": {
+                        "select": "loudness_select@enable",
+                        "mapping": "demux"
+                    }
+                },
+                {
+                    "io_mapping": {
+                        "select": "eq_select@enable",
+                        "mapping": "demux"
+                    }
+                }
+            ],
+            "signal_types": [
+                {
+                    "elements": [
+                        "analog_in_1", "analog_in_2", "analog_in_3", "analog_in_4",
+                        "analog_in_5", "analog_in_6", "recorder_in"
+                    ],
+                    "output_type": "analog_low_power"
+                },
+                {
+                    "elements": [ "pre_out", "record_out" ],
+                    "input_type": "analog_low_power"
+                },
+                {
+                    "elements": [ "speaker_out" ],
+                    "input_type": "analog_high_power"
+                },
+                {
+                    "elements": [ "amp" ],
+                    "input_type": "analog_low_power",
+                    "output_type": "analog_high_power"
+                }
+            ],
+            "predefined_elements": {
+                "equalizer": {
+                    "parameters": [ "$label", "$description", "$hz_table" ],
+                    "controls": {
+                        "frequency_l": {
+                            "type": "range", "value_type": "y",
+                            "min": 0, "max": 8, "step": 1, "scale": "steps",
+                            "mapped_to_scales": { "Hz": { "table": "$hz_table" } }
+                        },
+                        "frequency_r": {
+                            "type": "range", "value_type": "y",
+                            "min": 0, "max": 8, "step": 1, "scale": "steps",
+                            "mapped_to_scales": { "Hz": { "table": "$hz_table" } }
+                        },
+                        "level_l": {
+                            "type": "range", "value_type": "y",
+                            "min": 0, "max": 7, "step": 1, "scale": "steps",
+                            "mapped_to_scales": {
+                                "Hz": { "table": [ -12.5, -10.0, -7.5, -5.0, -2.5, 0.0, 3.0, 6.0 ] }
+                            }
+                        },
+                        "level_r": {
+                            "type": "range", "value_type": "y",
+                            "min": 0, "max": 7, "step": 1, "scale": "steps",
+                            "mapped_to_scales": {
+                                "Hz": { "table": [ -12.5, -10.0, -7.5, -5.0, -2.5, 0.0, 3.0, 6.0 ] }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "CalaCDR": {
+            "audio_sources": [
+                { "id": "analog_in_1" },
+                { "id": "analog_in_2" },
+                { "id": "digital_in_1" },
+                { "id": "digital_in_2" },
+                { "id": "digital_in_3" },
+                { "id": "tuner_fm" },
+                { "id": "tuner_dab" },
+                { "id": "bluetooth" },
+                { "id": "disc_drive" },
+                { "id": "strbo_i2s" },
+                { "id": "usb_1",        "parent": "strbo_i2s" },
+                { "id": "usb_2",        "parent": "strbo_i2s" },
+                { "id": "usb_wlan",     "parent": "strbo_i2s" },
+                { "id": "usb_ethernet", "parent": "strbo_i2s" }
+            ],
+            "audio_sinks": [
+                { "id": "digital_out" },
+                { "id": "speaker_out" },
+                { "id": "subwoofer_out" },
+                { "id": "analog_line_out" },
+                { "id": "headphone_out" }
+            ],
+            "elements": [
+                {
+                    "id": "input_select",
+                    "element": {
+                        "description": "Selects audio source",
+                        "stereo_inputs": 10,
+                        "controls": {
+                            "sel": {
+                                "type": "choice",
+                                "choices": [
+                                    "a1", "a2", "d1", "d2", "d3", "strbo",
+                                    "tuner_fm", "tuner_dab", "bt", "dd"
+                                ]
+                            }
+                        }
+                    }
+                },
+                {
+                    "id": "dsp",
+                    "element": {
+                        "description": "Digital Signal Processor",
+                        "controls": {
+                            "volume": {
+                                "type": "range", "value_type": "y",
+                                "min": 0, "max": 85, "step": 1, "scale": "steps",
+                                "neutral_setting": 85,
+                                "roon": {
+                                    "template": {
+                                        "type": "digital_volume",
+                                        "quality": "high"
+                                    },
+                                    "value_type": "d",
+                                    "value": "gain"
+                                }
+                            },
+                            "balance": {
+                                "type": "range", "value_type": "y",
+                                "min": -85, "max": 85, "step": 1, "scale": "steps",
+                                "neutral_setting": 0,
+                                "roon": {
+                                    "template": {
+                                        "type": "balance",
+                                        "quality": "lossless"
+                                    },
+                                    "value_type": "d",
+                                    "value": "value"
+                                }
+                            },
+                            "loudness_enable": {
+                                "type": "on_off",
+                                "roon": {
+                                    "template": {
+                                        "type": "t+a",
+                                        "quality": "enhanced",
+                                        "sub_type": "loudness"
+                                    }
+                                }
+                            },
+                            "tone_control_enable": { "type": "on_off" },
+                            "treble": {
+                                "label": "Treble",
+                                "description": "Treble setting",
+                                "type": "range", "value_type": "Y",
+                                "min": -12, "max": 12, "step": 1, "scale": "steps",
+                                "neutral_setting": 0,
+                                "roon": {
+                                    "template": {
+                                        "type": "eq",
+                                        "quality": "enhanced",
+                                        "sub_type": "treble"
+                                    },
+                                    "value_type": "d",
+                                    "value": "gain"
+                                }
+                            },
+                            "mid": {
+                                "label": "Mid",
+                                "description": "Midrange setting",
+                                "type": "range", "value_type": "D",
+                                "min": -6, "max": 6, "step": 0.5, "scale": "steps",
+                                "neutral_setting": 0,
+                                "roon": {
+                                    "template": {
+                                        "type": "eq",
+                                        "quality": "enhanced",
+                                        "sub_type": "mid"
+                                    },
+                                    "value_type": "d",
+                                    "value": "gain"
+                                }
+                            },
+                            "bass": {
+                                "label": "Bass",
+                                "description": "Bass setting",
+                                "type": "range", "value_type": "Y",
+                                "min": -12, "max": 12, "step": 1, "scale": "steps",
+                                "neutral_setting": 0,
+                                "roon": {
+                                    "template": {
+                                        "type": "eq",
+                                        "quality": "enhanced",
+                                        "sub_type": "bass"
+                                    },
+                                    "value_type": "d",
+                                    "value": "gain"
+                                }
+                            },
+                            "subwoofer_volume_offset": {
+                                "label": "Subwoofer Volume Offset",
+                                "type": "range", "value_type": "Y",
+                                "min": -15, "max": 15, "step": 1, "scale": "steps",
+                                "neutral_setting": 0
+                            },
+                            "contour_presence": {
+                                "label": "Contour Presence",
+                                "type": "range", "value_type": "Y",
+                                "min": -5, "max": 4, "step": 1, "scale": "steps",
+                                "neutral_setting": 0,
+                                "roon": {
+                                    "template": {
+                                        "type": "t+a",
+                                        "quality": "enhanced",
+                                        "sub_type": "contour_presence"
+                                    },
+                                    "value_type": "d",
+                                    "value": "gain"
+                                }
+                            },
+                            "contour_ft": {
+                                "label": "Contour Fundamental Tone",
+                                "type": "range", "value_type": "Y",
+                                "min": -3, "max": 2, "step": 1, "scale": "steps",
+                                "neutral_setting": 0,
+                                "roon": {
+                                    "template": {
+                                        "type": "t+a",
+                                        "quality": "enhanced",
+                                        "sub_type": "contour_fundamental"
+                                    },
+                                    "value_type": "d",
+                                    "value": "gain"
+                                }
+                            },
+                            "virtual_surround": {
+                                "type": "on_off",
+                                "neutral_setting": "off",
+                                "roon": {
+                                    "template": {
+                                        "type": "t+a",
+                                        "quality": "enhanced",
+                                        "sub_type": "virtual_surround"
+                                    }
+                                }
+                            },
+                            "speaker_lf_shape": {
+                                "type": "choice",
+                                "choices": [
+                                    "bass_ext", "full_range",
+                                    "40hz", "60hz", "100hz", "150hz"
+                                ],
+                                "neutral_setting": "full_range"
+                            },
+                            "speaker_stand": {
+                                "type": "choice",
+                                "choices": [ "free", "wall", "corner", "shelf" ],
+                                "neutral_setting": "free"
+                            },
+                            "room_correction_level": {
+                                "type": "choice",
+                                "choices": [
+                                    "normal",
+                                    "a1", "a2", "a3", "a4",
+                                    "r1", "r2", "r3", "r4", "r5", "r6"
+                                ],
+                                "neutral_setting": "normal"
+                            },
+                            "subwoofer_freq": {
+                                "type": "choice",
+                                "choices": [
+                                    "off", "40hz", "60hz", "100hz", "150hz"
+                                ],
+                                "neutral_setting": "off"
+                            },
+                            "room_headphone_enable": { "type": "on_off" },
+                            "analog_1_pass_through": { "type": "on_off" },
+                            "analog_2_phono_mode": { "type": "on_off" },
+                            "analog_1_in_level": {
+                                "type": "range", "value_type": "y",
+                                "min": 0, "max": 3, "step": 1, "scale": "steps",
+                                "mapped_to_scales": {
+                                    "mV": { "table": [ 500, 1000, 2000, 2800 ] }
+                                }
+                            },
+                            "analog_2_in_level": {
+                                "type": "range", "value_type": "y",
+                                "min": 0, "max": 3, "step": 1, "scale": "steps",
+                                "mapped_to_scales": {
+                                    "mV": { "table": [ 500, 1000, 2000, 2800 ] }
+                                }
+                            },
+                            "analog_2_phono_in_level": {
+                                "type": "range", "value_type": "y",
+                                "min": 0, "max": 2, "step": 1, "scale": "steps",
+                                "mapped_to_scales": {
+                                    "mV": { "table": [ 2.5, 5.0, 10.0 ] }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "id": "amp",
+                    "element": {
+                        "description": "Amplifier",
+                        "controls": { "enable": { "type": "on_off" } }
+                    }
+                }
+            ],
+            "audio_signal_paths": [
+                {
+                    "connections": {
+                        "analog_in_1":       "input_select.in0",
+                        "analog_in_2":       "input_select.in1",
+                        "digital_in_1":      "input_select.in2",
+                        "digital_in_2":      "input_select.in3",
+                        "digital_in_3":      "input_select.in4",
+                        "strbo_i2s":         "input_select.in5",
+                        "tuner_fm":          "input_select.in6",
+                        "tuner_dab":         "input_select.in7",
+                        "bluetooth":         "input_select.in8",
+                        "disc_drive":        "input_select.in9",
+                        "input_select.out0": "adc",
+                        "adc":               "dsp",
+                        "input_select.out1": [ "dsp", "digital_out" ],
+                        "dsp.out0":          [ "analog_line_out", "headphone_out" ],
+                        "dsp.out1":          "subwoofer_out",
+                        "dsp.out2":          "amp",
+                        "amp":               "speaker_out"
+                    }
+                },
+                {
+                    "io_mapping": {
+                        "select": "input_select@sel",
+                        "mapping": "mux"
+                    }
+                },
+                {
+                    "io_mapping": {
+                        "select": "amp@enable",
+                        "mapping": "table",
+                        "mapping_table": {
+                            "on":  [ "amp.in0", "amp.out0" ],
+                            "off": [ "amp.in0", null ]
+                        }
+                    }
+                }
+            ],
+            "signal_types": [
+                {
+                    "elements": [
+                        "analog_in_1", "analog_in_2", "input_select.out0",
+                        "dsp.out0", "dsp.out1"
+                    ],
+                    "output_type": "analog_low_power"
+                },
+                {
+                    "elements": [
+                        "digital_in_1", "digital_in_2", "digital_in_3",
+                        "strbo_i2s", "tuner_fm", "tuner_dab", "bluetooth",
+                        "disc_drive", "input_select.out1", "dsp.out2"
+                    ],
+                    "output_type": "pcm"
+                },
+                {
+                    "elements": [ "digital_out" ],
+                    "input_type": "pcm"
+                },
+                {
+                    "elements": [ "analog_line_out", "headphone_out" ],
+                    "input_type": "analog_low_power"
+                },
+                {
+                    "elements": [ "adc" ],
+                    "input_type": "analog_low_power",
+                    "output_type": "pcm"
+                },
+                {
+                    "elements": [ "amp" ],
+                    "input_type": "pcm",
+                    "output_type": "analog_high_power"
+                }
+            ],
+            "usb_connectors": [
+                {
+                    "id": "ethernet",
+                    "label": "Ethernet",
+                    "device_path": "/sys/bus/usb/devices/1-1.1:1.0",
+                    "location": "internal",
+                    "audio_source": "usb_ethernet"
+                },
+                {
+                    "id": "wlan",
+                    "label": "WLAN",
+                    "device_path": "/sys/bus/usb/devices/1-1.2:1.0",
+                    "location": "internal",
+                    "audio_source": "usb_wlan"
+                },
+                {
+                    "id": "usb1",
+                    "label": "USB 1",
+                    "device_path": "/sys/bus/usb/devices/1-1.3:1.0",
+                    "location": "rear",
+                    "audio_source": "usb_1"
+                },
+                {
+                    "id": "usb2",
+                    "label": "USB 2",
+                    "device_path": "/sys/bus/usb/devices/1-1.4:1.0",
+                    "location": "rear",
+                    "audio_source": "usb_2"
+                },
+                {
+                    "id": "internal",
+                    "label": "Unconnected",
+                    "device_path": "/sys/bus/usb/devices/1-1.4:1.0",
+                    "location": "none"
+                }
+            ]
+        }
+    }
+}
