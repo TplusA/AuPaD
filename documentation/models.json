@@ -585,7 +585,7 @@
                                 }
                             },
                             "balance": {
-                                "type": "range", "value_type": "y",
+                                "type": "range", "value_type": "Y",
                                 "min": -85, "max": 85, "step": 1, "scale": "steps",
                                 "neutral_setting": 0,
                                 "roon": {
