@@ -580,8 +580,11 @@
                                         "type": "digital_volume",
                                         "quality": "high"
                                     },
-                                    "value_type": "d",
-                                    "value": "gain"
+                                    "value_name": "gain",
+                                    "value_mapping": {
+                                        "type": "direct",
+                                        "value_type": "d"
+                                    }
                                 }
                             },
                             "balance": {
@@ -593,8 +596,13 @@
                                         "type": "balance",
                                         "quality": "lossless"
                                     },
-                                    "value_type": "d",
-                                    "value": "value"
+                                    "value_name": "value",
+                                    "value_mapping": {
+                                        "type": "to_range",
+                                        "value_type": "d",
+                                        "from": -1.0,
+                                        "to": 1.0
+                                    }
                                 }
                             },
                             "loudness_enable": {
@@ -620,8 +628,11 @@
                                         "quality": "enhanced",
                                         "sub_type": "treble"
                                     },
-                                    "value_type": "d",
-                                    "value": "gain"
+                                    "value_name": "gain",
+                                    "value_mapping": {
+                                        "type": "direct",
+                                        "value_type": "d"
+                                    }
                                 }
                             },
                             "mid": {
@@ -636,8 +647,11 @@
                                         "quality": "enhanced",
                                         "sub_type": "mid"
                                     },
-                                    "value_type": "d",
-                                    "value": "gain"
+                                    "value_name": "gain",
+                                    "value_mapping": {
+                                        "type": "direct",
+                                        "value_type": "d"
+                                    }
                                 }
                             },
                             "bass": {
@@ -652,8 +666,11 @@
                                         "quality": "enhanced",
                                         "sub_type": "bass"
                                     },
-                                    "value_type": "d",
-                                    "value": "gain"
+                                    "value_name": "gain",
+                                    "value_mapping": {
+                                        "type": "direct",
+                                        "value_type": "d"
+                                    }
                                 }
                             },
                             "subwoofer_volume_offset": {
@@ -673,8 +690,11 @@
                                         "quality": "enhanced",
                                         "sub_type": "contour_presence"
                                     },
-                                    "value_type": "d",
-                                    "value": "gain"
+                                    "value_name": "gain",
+                                    "value_mapping": {
+                                        "type": "direct",
+                                        "value_type": "d"
+                                    }
                                 }
                             },
                             "contour_ft": {
@@ -688,8 +708,11 @@
                                         "quality": "enhanced",
                                         "sub_type": "contour_fundamental"
                                     },
-                                    "value_type": "d",
-                                    "value": "gain"
+                                    "value_name": "gain",
+                                    "value_mapping": {
+                                        "type": "direct",
+                                        "value_type": "d"
+                                    }
                                 }
                             },
                             "virtual_surround": {
