@@ -53,7 +53,7 @@ class Plugin
 
     virtual void registered() = 0;
     virtual void unregistered() = 0;
-    virtual void report_changes(const Settings &settings, const Changes &changes) = 0;
+    virtual void report_changes(const Settings &settings, const Changes &changes) const = 0;
     virtual bool full_report(const Settings &settings, std::string &report) const = 0;
 
     bool has_clients() const { return reference_count_ > 0; }

@@ -48,7 +48,7 @@ class RoonOutput: public Plugin
 
     void registered() final override;
     void unregistered() final override;
-    void report_changes(const Settings &settings, const Changes &changes) final override;
+    void report_changes(const Settings &settings, const Changes &changes) const final override;
     bool full_report(const Settings &settings, std::string &report) const final override;
 };
 

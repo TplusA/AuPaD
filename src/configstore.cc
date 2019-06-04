@@ -308,7 +308,11 @@ class Element
         old_values = std::move(values_);
     }
 
-    const auto &get_values() const { return values_; }
+    const auto &get_values() const
+    {
+        // cppcheck-suppress accessMoved
+        return values_;
+    }
 };
 
 /*!
@@ -1194,6 +1198,7 @@ void ConfigStore::DeviceContext::for_each_setting(const SettingReportFn &apply) 
 {
     for(const auto &elem : device_.get_elements())
         for(const auto &v : elem.second.get_values())
+            // cppcheck-suppress useStlAlgorithm
             if(!apply(elem.second.name_, v.first, v.second))
                 return;
 }

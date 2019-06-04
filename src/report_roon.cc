@@ -339,7 +339,7 @@ static bool add_entry_for_name(const ConfigStore::ConstSettingsJSON &js,
 }
 
 void ConfigStore::RoonOutput::report_changes(const Settings &settings,
-                                             const Changes &changes)
+                                             const Changes &changes) const
 {
     nlohmann::json output;
     const ConfigStore::ConstSettingsJSON js(settings);

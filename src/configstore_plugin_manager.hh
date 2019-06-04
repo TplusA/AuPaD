@@ -51,7 +51,7 @@ class PluginManager
 
     void register_plugin(std::unique_ptr<Plugin> plugin);
     void shutdown() noexcept;
-    void report_changes(const Settings &settings, const Changes &changes);
+    void report_changes(const Settings &settings, const Changes &changes) const;
 };
 
 }

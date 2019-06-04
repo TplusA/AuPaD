@@ -54,8 +54,9 @@ void ConfigStore::PluginManager::shutdown() noexcept
 }
 
 void ConfigStore::PluginManager::report_changes(const ConfigStore::Settings &settings,
-                                                const ConfigStore::Changes &changes)
+                                                const ConfigStore::Changes &changes) const
 {
+    // cppcheck-suppress accessMoved
     for(const auto &p : plugins_)
         if(p->has_clients())
             p->report_changes(settings, changes);

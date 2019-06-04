@@ -37,6 +37,7 @@ class Error
 
     explicit Error() = default;
 
+    // cppcheck-suppress exceptThrowInDestructor
     [[ noreturn ]] ~Error() noexcept(false) { throw std::runtime_error(os_.str()); }
 
     template <typename T>
