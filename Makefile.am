@@ -31,7 +31,8 @@ EXTRA_DIST = COPYING COPYING.GPLv3 README.md cppcheck_suppressed.txt
 CLEANFILES = README.html
 
 EXTRA_DIST += \
-    aupalc.py \
+    tools/aupalc.py \
+    tools/show_path.py \
     dbus_interfaces/extract_documentation.py \
     dbus_interfaces/de_tahifi_jsonio.xml
 
@@ -53,5 +54,5 @@ doctest-valgrind:
 endif
 
 check-py:
-	python3 -m pyflakes $(top_srcdir)/aupalc.py
-	python3 -m flake8 $(top_srcdir)/aupalc.py
+	python3 -m pyflakes $(top_srcdir)/tools/aupalc.py
+	python3 -m flake8 $(top_srcdir)/tools/aupalc.py
