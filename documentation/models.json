@@ -63,7 +63,13 @@
                             "phase_invert": {
                                 "label": "PCM phase invert",
                                 "description": "Enables signal phase inversion for PCM path",
-                                "type": "on_off"
+                                "type": "on_off",
+                                "roon": {
+                                    "template": {
+                                        "type": "invert_phase",
+                                        "quality": "lossless"
+                                    }
+                                }
                             }
                         }
                     }
@@ -92,7 +98,13 @@
                             "phase_invert": {
                                 "type": "on_off",
                                 "label": "DSD phase invert",
-                                "description": "Enables signal phase inversion for DSD path"
+                                "description": "Enables signal phase inversion for DSD path",
+                                "roon": {
+                                    "template": {
+                                        "type": "invert_phase",
+                                        "quality": "lossless"
+                                    }
+                                }
                             }
                         }
                     }
