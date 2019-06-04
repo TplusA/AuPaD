@@ -1,7 +1,8 @@
 #! /usr/bin/python3
 
+import argparse
 import json
-import sys
+from pathlib import Path
 
 
 class Connectable:
@@ -326,7 +327,18 @@ def _dump_model(model):
 
 
 def main():
-    j = json.load(open('models.json'))
+    parser = argparse.ArgumentParser(description='Show device models')
+
+    parser.add_argument(
+            'JSON', type=Path,
+            help='file containing audio path models of T+A appliances')
+    parser.add_argument(
+            '--device-id', '-d', metavar='ID', type=str, default=None,
+            help='restrict output to given device ID')
+    args = parser.parse_args()
+    options = vars(args)
+
+    j = json.load(options['JSON'].open())
 
     all = j['all_devices']
     models = {}
@@ -336,8 +348,10 @@ def main():
         model.from_json(all[dev])
         models[dev] = model
 
-    if len(sys.argv) > 1:
-        _dump_model(models[sys.argv[1]])
+    device_id = options['device_id']
+
+    if device_id is not None:
+        _dump_model(models[device_id])
     else:
         for m in models.values():
             _dump_model(m)
