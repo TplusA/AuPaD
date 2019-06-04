@@ -62,6 +62,7 @@ class Control:
         self.label = json.get('label', None)
         self.desc = json.get('description', None)
         self.neutral_setting = json.get('neutral_setting', None)
+        self.for_roon = json.get('roon', None)
         assert(isinstance(self.label, (str, type(None))))
         assert(isinstance(self.desc, (str, type(None))))
 
@@ -73,6 +74,9 @@ class Control:
             s += ' ({})'.format(self.desc)
         if self.neutral_setting is not None:
             s += ', neutral {}'.format(self.neutral_setting)
+        if self.for_roon is not None:
+            s += ', reported to Roon ({})' \
+                 .format(self.for_roon.get('template'))
         return s
 
     def has_mappings(self):
