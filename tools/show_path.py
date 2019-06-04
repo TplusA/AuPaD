@@ -160,9 +160,9 @@ class ControlRange(Control):
 
     def __repr__(self):
         s = super().__repr__()
-        s += ' - Range [{}..{}] +{} {}, type {}'\
-                .format(self.min, self.max, self.step, self.scale,
-                        self.value_type)
+        s += ' - Range [{}..{}] +{} {}, type {}' \
+             .format(self.min, self.max, self.step, self.scale,
+                     self.value_type)
         return s
 
     def has_mappings(self):

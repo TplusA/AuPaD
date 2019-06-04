@@ -56,3 +56,5 @@ endif
 check-py:
 	python3 -m pyflakes $(top_srcdir)/tools/aupalc.py
 	python3 -m flake8 $(top_srcdir)/tools/aupalc.py
+	python3 -m pyflakes $(top_srcdir)/tools/show_path.py
+	python3 -m flake8 $(top_srcdir)/tools/show_path.py
