@@ -11,6 +11,10 @@ def warning(msg):
     sys.stderr.write('WARNING: {}\n'.format(msg))
 
 
+def show_error(msg):
+    sys.stderr.write('ERROR: {}\n'.format(msg))
+
+
 class Connectable:
     INBOUND = 1
     OUTBOUND = 2
@@ -248,8 +252,14 @@ class DeviceModel:
         self.elements = None
         self.signal_paths = None
         self.signal_mappings = None
+        self.invalid = True
 
     def from_json(self, json):
+        if 'copy_properties' in json:
+            warning('Skipping {} ("copy_properties" not implemented yet)'
+                    .format(self.id))
+            return
+
         self.audio_sources =\
             DeviceModel.__parse_audio_sources(json['audio_sources'])
         DeviceModel.__resolve_audio_source_parent_relations(
@@ -258,6 +268,7 @@ class DeviceModel:
         self.elements = DeviceModel.__parse_elements(json['elements'])
         self.signal_paths, self.signal_mappings = \
             DeviceModel.__parse_signal_paths(json['audio_signal_paths'])
+        self.invalid = False
 
     @staticmethod
     def __parse_audio_sources(json):
@@ -307,14 +318,18 @@ class DeviceModel:
         result = {}
 
         for a in json:
-            elem = Element(a['id'])
+            try:
+                elem = Element(a['id'])
 
-            if elem.id in result:
-                raise RuntimeError(
-                    'Duplicate signal path element {}'.format(elem.id))
+                if elem.id in result:
+                    raise RuntimeError(
+                        'Duplicate signal path element {}'.format(elem.id))
 
-            if DeviceModel.__parse_element(a.get('element', None), elem):
-                result[elem.id] = elem
+                if DeviceModel.__parse_element(a.get('element', None), elem):
+                    result[elem.id] = elem
+            except:  # noqa: E722
+                show_error('Failed parsing element {}'.format(elem))
+                raise
 
         return result
 
@@ -391,6 +406,10 @@ class DeviceModel:
 
 
 def _dump_model(model):
+    if model.invalid:
+        print('{}\n  *Invalid*'.format(model.id))
+        return
+
     print('{}\n  Sources:\n{}\n  Sinks:\n{}\n  Elements:'
           .format(model.id,
                   '\n'.join(['    {}'.format(s)
@@ -516,8 +535,13 @@ def main():
 
     for dev in all:
         model = DeviceModel(dev)
-        model.from_json(all[dev])
-        models[dev] = model
+        try:
+            model.from_json(all[dev])
+            models[dev] = model
+        except:  # noqa: E722
+            show_error('Failed parsing specification for device {}'
+                       .format(model.id))
+            raise
 
     device_id = options['device_id']
 
