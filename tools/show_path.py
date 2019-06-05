@@ -2,7 +2,13 @@
 
 import argparse
 import json
+import re
+import sys
 from pathlib import Path
+
+
+def warning(msg):
+    sys.stderr.write('WARNING: {}\n'.format(msg))
 
 
 class Connectable:
@@ -212,12 +218,36 @@ class Element(Connectable):
         return True if self.controls else False
 
 
+class IOMapping:
+    def __init__(self, select):
+        self.select = select
+
+
+class IOMapMux(IOMapping):
+    def __init__(self, select, table=None):
+        super().__init__(select)
+        self.table = table
+
+
+class IOMapDemux(IOMapping):
+    def __init__(self, select):
+        super().__init__(select)
+
+
+class IOMapTable(IOMapping):
+    def __init__(self, select, table):
+        super().__init__(select)
+        self.table = table
+
+
 class DeviceModel:
     def __init__(self, id):
         self.id = id
         self.audio_sources = None
         self.audio_sinks = None
         self.elements = None
+        self.signal_paths = None
+        self.signal_mappings = None
 
     def from_json(self, json):
         self.audio_sources =\
@@ -226,6 +256,8 @@ class DeviceModel:
             json['audio_sources'], self.audio_sources)
         self.audio_sinks = DeviceModel.__parse_audio_sinks(json['audio_sinks'])
         self.elements = DeviceModel.__parse_elements(json['elements'])
+        self.signal_paths, self.signal_mappings = \
+            DeviceModel.__parse_signal_paths(json['audio_signal_paths'])
 
     @staticmethod
     def __parse_audio_sources(json):
@@ -301,10 +333,61 @@ class DeviceModel:
                 elem.add_control(_mk_control(ctl, controls[ctl]))
 
         if json.get('predefined', None) is not None:
-            print('WARNING: Element templates are not supported yet ({})'
-                  .format(elem.id))
+            warning('Element templates are not supported yet ({})'
+                    .format(elem.id))
 
         return True
+
+    @staticmethod
+    def __parse_signal_paths(json):
+        if not json:
+            return None, None
+
+        edges = []
+        maps = []
+
+        for block in json:
+            conns = block.get('connections')
+            iomap = block.get('io_mapping')
+
+            if conns and iomap:
+                raise RuntimeError('Found "connections" and "io_mapping" in '
+                                   'same object')
+
+            if conns:
+                for c in conns:
+                    def ensure_connector_name(n, cname, expr):
+                        return n if re.search(expr, n) else n + cname
+
+                    # a = c if re.search(r'\.out[0-9]+', c) else c + '.out0'
+                    a = ensure_connector_name(c, '.out0', r'\.out[0-9]+')
+
+                    if isinstance(conns[c], list):
+                        for b in conns[c]:
+                            edges.append(
+                                (a, ensure_connector_name(
+                                        b, '.in0', r'\.in[0-9]+')))
+                    else:
+                        edges.append(
+                            (a, ensure_connector_name(
+                                    conns[c], '.in0', r'\.in[0-9]+')))
+
+            if iomap:
+                map_type = iomap['mapping']
+
+                if map_type == 'mux':
+                    maps.append(IOMapMux(iomap['select'],
+                                         iomap.get('mapping_table', None)))
+                elif map_type == 'demux':
+                    maps.append(IOMapDemux(iomap['select']))
+                elif map_type == 'table':
+                    maps.append(IOMapTable(iomap['select'],
+                                           iomap['mapping_table']))
+                else:
+                    raise RuntimeError('Unknown mapping type "{}"'
+                                       .format(map_type))
+
+        return edges, maps
 
 
 def _dump_model(model):
@@ -330,6 +413,83 @@ def _dump_model(model):
                     print('            {}'.format(m))
 
 
+def _emit_dot(model, outfile):
+    outfile.write('digraph {} {{\n'.format(model.id))
+
+    switches = {}
+
+    if model.signal_mappings:
+        for sm in model.signal_mappings:
+            elem, ctrl = sm.select.split('@', 1)
+
+            if elem not in switches:
+                switches[elem] = [ctrl]
+            else:
+                switches[elem].append(ctrl)
+
+    if model.signal_paths:
+        elements = set()
+        sources = set()
+        sinks = set()
+
+        for p in model.signal_paths:
+            outfile.write('  "{}" -> "{}" [color=blue];\n'.format(p[0], p[1]))
+            sources.add(p[0])
+            sinks.add(p[1])
+            e_from = p[0].rsplit('.', 1)[0]
+            e_to = p[1].rsplit('.', 1)[0]
+            elements.add(e_from)
+            elements.add(e_to)
+            outfile.write(
+                '  "{}" -> "{}" [style=bold, dir=both, arrowhead=inv, '
+                'arrowtail=inv];\n'.format(e_from, p[0]))
+            outfile.write(
+                '  "{}" -> "{}" [style=bold, dir=both, arrowhead=inv, '
+                'arrowtail=inv];\n'.format(p[1], e_to))
+
+        for n in sources:
+            outfile.write(
+                '  "{}" [label="{}"];\n'.format(n, n.rsplit('.', 1)[1]))
+
+        for n in sinks:
+            outfile.write(
+                '  "{}" [label="{}"];\n'.format(n, n.rsplit('.', 1)[1]))
+
+        for e in elements:
+            if e in switches:
+                if e in model.elements:
+                    label_option = \
+                        ', label="{}\\n(switched by {})"' \
+                        .format(e, ', '.join(
+                            ['\\"' + x + '\\"' for x in switches[e]]))
+                else:
+                    warning('IO mapping defined for "{}", but is '
+                            'not an element'.format(e))
+            else:
+                label_option = ''
+
+            if e in model.elements:
+                outfile.write(
+                    '  "{}" [shape=box, style=filled, fillcolor=green{}];\n'
+                    .format(e, label_option))
+            elif e in model.audio_sources:
+                outfile.write(
+                    '  "{}" [shape=box, style=filled, fillcolor=yellow];\n'
+                    .format(e))
+            elif e in model.audio_sinks:
+                outfile.write(
+                    '  "{}" [shape=box, style=filled, fillcolor=orange];\n'
+                    .format(e))
+            else:
+                warning('Undefined element {}.{} used in signal paths'
+                        .format(model.id, e))
+                outfile.write(
+                    '  "{}" [shape=octagon, style=filled, fillcolor=red, '
+                    'label="UNDEF: {}"];\n'.format(e, e))
+
+    outfile.write('}\n')
+
+
 def main():
     parser = argparse.ArgumentParser(description='Show device models')
 
@@ -337,10 +497,17 @@ def main():
             'JSON', type=Path,
             help='file containing audio path models of T+A appliances')
     parser.add_argument(
-            '--device-id', '-d', metavar='ID', type=str, default=None,
+            '--device-id', '-i', metavar='ID', type=str, default=None,
             help='restrict output to given device ID')
+    parser.add_argument(
+            '--dot', '-d', metavar='FILE', type=Path, default=None,
+            help='write dot graph for signal paths defined for given '
+            'device ID (requires --device-id); pass - to write to stdout')
     args = parser.parse_args()
     options = vars(args)
+
+    if options['dot'] is not None and options['device_id'] is None:
+        parser.error('option --device-id is required if --dot is specified.')
 
     j = json.load(options['JSON'].open())
 
@@ -355,7 +522,14 @@ def main():
     device_id = options['device_id']
 
     if device_id is not None:
-        _dump_model(models[device_id])
+        dotname = options['dot']
+
+        if dotname is None:
+            _dump_model(models[device_id])
+        else:
+            _emit_dot(models[device_id],
+                      dotname.open(mode='w') if str(dotname) != '-'
+                      else sys.stdout)
     else:
         for m in models.values():
             _dump_model(m)
