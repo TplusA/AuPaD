@@ -314,7 +314,8 @@ class DeviceModel:
             self.elements = DeviceModel.__parse_elements(json['elements'])
 
         sp, sm = \
-            DeviceModel.__parse_signal_paths(json.get('audio_signal_paths'))
+            DeviceModel.__parse_signal_paths(json.get('audio_signal_paths'),
+                                             self.id)
 
         if self.audio_signal_paths is None:
             self.audio_signal_paths = sp
@@ -409,7 +410,7 @@ class DeviceModel:
         return True
 
     @staticmethod
-    def __parse_signal_paths(json):
+    def __parse_signal_paths(json, model_id):
         if not json:
             return None, None
 
@@ -422,7 +423,7 @@ class DeviceModel:
 
             if conns and iomap:
                 raise RuntimeError('Found "connections" and "io_mapping" in '
-                                   'same object')
+                                   'same object ({})'.format(model_id))
 
             if conns:
                 for c in conns:
@@ -505,6 +506,7 @@ def _emit_dot(model, outfile):
         elements = set()
         sources = set()
         sinks = set()
+        arcs_drawn = set()
 
         for p in model.audio_signal_paths:
             outfile.write('  "{}" -> "{}" [color=blue];\n'.format(p[0], p[1]))
@@ -514,12 +516,27 @@ def _emit_dot(model, outfile):
             e_to = p[1].rsplit('.', 1)[0]
             elements.add(e_from)
             elements.add(e_to)
-            outfile.write(
-                '  "{}" -> "{}" [style=bold, dir=both, arrowhead=inv, '
-                'arrowtail=inv];\n'.format(e_from, p[0]))
-            outfile.write(
-                '  "{}" -> "{}" [style=bold, dir=both, arrowhead=inv, '
-                'arrowtail=inv];\n'.format(p[1], e_to))
+
+            if not (e_from, p[0]) in arcs_drawn:
+                arcs_drawn.add((e_from, p[0]))
+                outfile.write(
+                    '  "{}" -> "{}" [style=bold, dir=both, arrowhead=inv, '
+                    'arrowtail=inv];\n'.format(e_from, p[0]))
+
+            if not (p[1], e_to) in arcs_drawn:
+                arcs_drawn.add((p[1], e_to))
+                outfile.write(
+                    '  "{}" -> "{}" [style=bold, dir=both, arrowhead=inv, '
+                    'arrowtail=inv];\n'.format(p[1], e_to))
+
+        for s in model.audio_sources:
+            if s not in elements:
+                src = model.audio_sources[s]
+                if src.parent:
+                    elements.add(src.id)
+                    outfile.write(
+                        '  "{}" -> "{}" [style=bold, dir=none];\n'
+                        .format(src.id, src.parent.id))
 
         for n in sources:
             outfile.write(
@@ -560,6 +577,30 @@ def _emit_dot(model, outfile):
                 outfile.write(
                     '  "{}" [shape=octagon, style=filled, fillcolor=red, '
                     'label="UNDEF: {}"];\n'.format(e, e))
+
+        for e in model.elements:
+            if e not in elements:
+                warning('Element "{}" is not on any signal path ({})'
+                        .format(e, model.id))
+                outfile.write(
+                    '  "{}" [shape=octagon, style=filled, fillcolor=red, '
+                    'label="UNUSED: {}"];\n'.format(e, e))
+
+        for s in model.audio_sources:
+            if s not in elements:
+                warning('Audio source "{}" is not on any signal path ({})'
+                        .format(s, model.id))
+                outfile.write(
+                    '  "{}" [shape=box, style=filled, fillcolor=red, '
+                    'label="UNUSED SOURCE:\\n{}"];\n'.format(s, s))
+
+        for s in model.audio_sinks:
+            if s not in elements:
+                warning('Audio sink "{}" is not on any signal path ({})'
+                        .format(s, model.id))
+                outfile.write(
+                    '  "{}" [shape=box, style=filled, fillcolor=red, '
+                    'label="UNUSED SINK:\\n{}"];\n'.format(s, s))
 
     outfile.write('}\n')
 
