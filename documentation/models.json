@@ -424,13 +424,13 @@
             "audio_signal_paths": [
                 {
                     "connections": {
-                        "analog_in_1": "input_select.a",
-                        "analog_in_2": "input_select.b",
-                        "analog_in_3": "input_select.c",
-                        "analog_in_4": "input_select.d",
-                        "analog_in_5": "input_select.e",
-                        "analog_in_6": "input_select.f",
-                        "recorder_in": "input_select.r",
+                        "analog_in_1": "input_select.in0",
+                        "analog_in_2": "input_select.in1",
+                        "analog_in_3": "input_select.in2",
+                        "analog_in_4": "input_select.in3",
+                        "analog_in_5": "input_select.in4",
+                        "analog_in_6": "input_select.in5",
+                        "recorder_in": "input_select.in5",
                         "input_select": [ "record_out", "input_volume" ],
                         "input_volume": [ "pre_out_enable", "tone_ctl_select" ],
                         "pre_out_enable": "pre_out",
@@ -800,6 +800,10 @@
                         "description": "Amplifier",
                         "controls": { "enable": { "type": "on_off" } }
                     }
+                },
+                {
+                    "id": "adc",
+                    "element": { "description": "A/D converter" }
                 }
             ],
             "audio_signal_paths": [
