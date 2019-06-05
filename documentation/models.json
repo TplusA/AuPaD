@@ -916,6 +916,25 @@
                     "location": "none"
                 }
             ]
+        },
+        "CalaSR": { "copy_properties": { "all": "CalaCDR" } },
+        "CalaBerbel": {
+            "copy_properties": {
+                "audio_sources": "CalaCDR",
+                "audio_sinks": "CalaCDR",
+                "elements": "CalaCDR",
+                "audio_signal_paths": "CalaCDR",
+                "signal_types": "CalaCDR"
+            },
+            "usb_connectors": [
+                {
+                    "id": "wlan",
+                    "name": "WLAN",
+                    "device_path": "/sys/bus/usb/devices/1-1.1:1",
+                    "location": "internal",
+                    "audio_source": "usb_wlan"
+                }
+            ]
         }
     }
 }
