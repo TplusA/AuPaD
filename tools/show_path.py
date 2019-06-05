@@ -247,28 +247,83 @@ class IOMapTable(IOMapping):
 class DeviceModel:
     def __init__(self, id):
         self.id = id
+        self._clear()
+
+    def _clear(self):
         self.audio_sources = None
         self.audio_sinks = None
         self.elements = None
-        self.signal_paths = None
+        self.audio_signal_paths = None
         self.signal_mappings = None
+        self.signal_types = None
+        self.usb_connectors = None
         self.invalid = True
 
-    def from_json(self, json):
-        if 'copy_properties' in json:
-            warning('Skipping {} ("copy_properties" not implemented yet)'
-                    .format(self.id))
-            return
+    _VALID_PROPS = ('audio_sources', 'audio_sinks', 'elements',
+                    'audio_signal_paths', 'signal_types', 'usb_connectors')
 
-        self.audio_sources =\
-            DeviceModel.__parse_audio_sources(json['audio_sources'])
-        DeviceModel.__resolve_audio_source_parent_relations(
-            json['audio_sources'], self.audio_sources)
-        self.audio_sinks = DeviceModel.__parse_audio_sinks(json['audio_sinks'])
-        self.elements = DeviceModel.__parse_elements(json['elements'])
-        self.signal_paths, self.signal_mappings = \
-            DeviceModel.__parse_signal_paths(json['audio_signal_paths'])
+    def from_json(self, json, models=None):
+        self._clear()
+
+        props = json.get('copy_properties', None)
+        if props:
+            deps = set()
+            copy_props = set()
+            copy_all = False
+
+            for p in props:
+                if p in DeviceModel._VALID_PROPS:
+                    deps.add(props[p])
+                    copy_props.add(p)
+                elif p == 'all':
+                    deps.add(props[p])
+                    copy_all = True
+                else:
+                    raise RuntimeError(
+                        'Cannot copy from "{}", invalid source property '
+                        'specification'.format(p))
+
+            if copy_props and copy_all:
+                raise RuntimeError(
+                    'Cannot copy \"all\" *and* from individual fields')
+
+            if not models:
+                return deps
+
+            if copy_all:
+                copy_props = DeviceModel._VALID_PROPS
+                copy_from = props['all']
+            else:
+                copy_from = None
+
+            for p in copy_props:
+                src = models[props.get(p, copy_from)]
+                setattr(self, p, getattr(src, p))
+
+        if self.audio_sources is None:
+            self.audio_sources = \
+                DeviceModel.__parse_audio_sources(json['audio_sources'])
+            DeviceModel.__resolve_audio_source_parent_relations(
+                json['audio_sources'], self.audio_sources)
+
+        if self.audio_sinks is None:
+            self.audio_sinks = \
+                DeviceModel.__parse_audio_sinks(json['audio_sinks'])
+
+        if self.elements is None:
+            self.elements = DeviceModel.__parse_elements(json['elements'])
+
+        sp, sm = \
+            DeviceModel.__parse_signal_paths(json.get('audio_signal_paths'))
+
+        if self.audio_signal_paths is None:
+            self.audio_signal_paths = sp
+
+        if self.signal_mappings is None:
+            self.signal_mappings = sm
+
         self.invalid = False
+        return None
 
     @staticmethod
     def __parse_audio_sources(json):
@@ -446,12 +501,12 @@ def _emit_dot(model, outfile):
             else:
                 switches[elem].append(ctrl)
 
-    if model.signal_paths:
+    if model.audio_signal_paths:
         elements = set()
         sources = set()
         sinks = set()
 
-        for p in model.signal_paths:
+        for p in model.audio_signal_paths:
             outfile.write('  "{}" -> "{}" [color=blue];\n'.format(p[0], p[1]))
             sources.add(p[0])
             sinks.add(p[1])
@@ -509,6 +564,50 @@ def _emit_dot(model, outfile):
     outfile.write('}\n')
 
 
+def _parse_all_devices(all):
+    models = {}
+    pending_models = {}
+
+    for dev in all:
+        model = DeviceModel(dev)
+        try:
+            dependencies = model.from_json(all[dev])
+            if not dependencies:
+                models[dev] = model
+            else:
+                pending_models[dev] = (model, dependencies)
+        except:  # noqa: E722
+            show_error('Failed parsing specification for device {}'
+                       .format(model.id))
+            raise
+
+    while pending_models:
+        resolved_any = False
+
+        for m in pending_models:
+            can_resolve = True
+            for dep in pending_models[m][1]:
+                if dep not in models:
+                    can_resolve = False
+                    break
+
+            if not can_resolve:
+                continue
+
+            model = pending_models[m][0]
+            del pending_models[m]
+            model.from_json(all[m], models)
+            models[m] = model
+            resolved_any = True
+            break
+
+        if not resolved_any:
+            raise RuntimeError('Unresolved models: {}'
+                               .format(', '.join(pending_models.keys())))
+
+    return models
+
+
 def main():
     parser = argparse.ArgumentParser(description='Show device models')
 
@@ -529,19 +628,7 @@ def main():
         parser.error('option --device-id is required if --dot is specified.')
 
     j = json.load(options['JSON'].open())
-
-    all = j['all_devices']
-    models = {}
-
-    for dev in all:
-        model = DeviceModel(dev)
-        try:
-            model.from_json(all[dev])
-            models[dev] = model
-        except:  # noqa: E722
-            show_error('Failed parsing specification for device {}'
-                       .format(model.id))
-            raise
+    models = _parse_all_devices(j['all_devices'])
 
     device_id = options['device_id']
 
