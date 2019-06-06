@@ -150,7 +150,7 @@ class ConvertToFixPoint:
             int(fracpart / ConvertToFixPoint.SCALED_PRECISION) + \
             (1 << 13 if dbl < 0.0 else 0)
 
-        return result.to_bytes(2, byteorder='little', signed=False)
+        return result.to_bytes(2, byteorder='big', signed=False)
 
 
 def is_quoted_string(s):
