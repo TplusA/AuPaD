@@ -295,7 +295,7 @@ class Parser:
     def _parse_command_instance_removed(self, line):
         args = re.split(r'\s+', line)
         if len(args) != 1:
-            self.error('command i requires at an instance name')
+            self.error('command i requires an instance name')
 
         self.emission.append(ord('i'))
         self.emission.append(args[0])
@@ -304,7 +304,7 @@ class Parser:
     def _parse_command_update_single_value(self, line):
         args = re.split(r'\s+', line, 1)
         if len(args) != 2:
-            self.error('command u requires at an element name and '
+            self.error('command u requires an element name and '
                        'an assignment')
 
         self.emission.append(ord('u'))
@@ -317,7 +317,7 @@ class Parser:
     def _parse_command_delete_single_value(self, line):
         args = re.split(r'\s+', line)
         if len(args) != 2:
-            self.error('command d requires at an element name and '
+            self.error('command d requires an element name and '
                        'a control name')
 
         self.emission.append(ord('d'))
@@ -363,7 +363,7 @@ class Parser:
     def _parse_command_set_or_update_values(self, command, line):
         args = re.split(r'\s+', line)
         if len(args) != 1:
-            self.error('command {} requires at an element name'
+            self.error('command {} requires an element name'
                        .format(command))
 
         self.emission.append(ord(command))
