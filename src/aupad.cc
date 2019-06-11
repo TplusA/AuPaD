@@ -374,7 +374,7 @@ int main(int argc, char *argv[])
 
     TDBus::setup(TDBus::session_bus());
 
-    static ConfigStore::DeviceModels models;
+    static StaticModels::DeviceModels models;
     models.load(parameters.device_models_file_);
 
     static ConfigStore::Settings settings(models);

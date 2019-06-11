@@ -90,6 +90,10 @@ class RoonUpdate
         sent_update_ = nlohmann::json::parse(asp);
         update_was_sent_ = true;
 
+        // FIXME: Temporary workaround for random signal path ordering
+        std::sort(expected_update_.begin(), expected_update_.end());
+        std::sort(sent_update_.begin(), sent_update_.end());
+
         const auto d(nlohmann::json::diff(sent_update_, expected_update_));
         if(d.empty())
             return;
@@ -112,7 +116,7 @@ class Fixture
 {
   protected:
     ConfigStore::PluginManager pm;
-    ConfigStore::DeviceModels models;
+    StaticModels::DeviceModels models;
     ConfigStore::Settings settings;
     std::unique_ptr<MockMessages::Mock> mock_messages;
 

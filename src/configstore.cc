@@ -409,7 +409,7 @@ class Device
 class ConfigStore::Settings::Impl
 {
   private:
-    DeviceModels &models_;
+    const StaticModels::DeviceModels &models_;
     std::unordered_map<std::string, Device> devices_;
     std::unique_ptr<ChangeLog> log_;
 
@@ -419,7 +419,7 @@ class ConfigStore::Settings::Impl
     Impl &operator=(const Impl &) = delete;
     Impl &operator=(Impl &&) = default;
 
-    explicit Impl(DeviceModels &models):
+    explicit Impl(const StaticModels::DeviceModels &models):
         models_(models)
     {}
 
@@ -1103,7 +1103,7 @@ const nlohmann::json &ConfigStore::Settings::Impl::retrieve_control_definition_f
     return empty;
 }
 
-ConfigStore::Settings::Settings(ConfigStore::DeviceModels &models):
+ConfigStore::Settings::Settings(const StaticModels::DeviceModels &models):
     impl_(std::make_unique<Impl>(models))
 {}
 

@@ -33,6 +33,9 @@ namespace ConfigStore
 class Value;
 class Settings;
 
+/*!
+ * Context for iterating of live settings in an appliance instance.
+ */
 class DeviceContext
 {
   public:
@@ -56,6 +59,9 @@ class DeviceContext
     void for_each_setting(const SettingReportFn &apply) const;
 };
 
+/*!
+ * Iterator manager over live settings as reported by the appliance.
+ */
 class SettingsIterator
 {
   private:

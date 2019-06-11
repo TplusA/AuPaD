@@ -27,9 +27,15 @@
 #include "json.hh"
 #pragma GCC diagnostic pop
 
-namespace ConfigStore
+namespace StaticModels
 {
 
+/*!
+ * All models as read from the JSON database.
+ *
+ * This class is basically a JSON object with a name, extended by some helper
+ * functions. Not much validation of model integrity is done in here.
+ */
 class DeviceModels
 {
   private:

@@ -25,13 +25,24 @@
 #include <string>
 #include <memory>
 
+namespace StaticModels { class DeviceModels; }
+
 namespace ConfigStore
 {
 
 class SettingsJSON;
-class DeviceModels;
 class SettingsIterator;
 
+/*!
+ * All settings as reported by the appliance.
+ *
+ * The settings stored in this object are not matched against the device
+ * models. Instead, they represent raw, live data as reported by the appliance
+ * as AuPaL objects.
+ *
+ * \see
+ *     #ConfigStore::ConstSettingsJSON, #ConfigStore::SettingsJSON
+ */
 class Settings
 {
   private:
@@ -48,7 +59,7 @@ class Settings
     Settings &operator=(const Settings &) = delete;
     Settings &operator=(Settings &&) = default;
 
-    explicit Settings(DeviceModels &models);
+    explicit Settings(const StaticModels::DeviceModels &models);
     ~Settings();
 
     void clear();

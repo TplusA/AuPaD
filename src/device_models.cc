@@ -53,8 +53,8 @@ static bool do_load(std::ifstream &in, bool suppress_error,
     }
 }
 
-bool ConfigStore::DeviceModels::load(const std::string &config,
-                                     bool suppress_error)
+bool StaticModels::DeviceModels::load(const std::string &config,
+                                      bool suppress_error)
 {
     std::ifstream in(config);
     return do_load(in, suppress_error, config_data_,
@@ -62,8 +62,8 @@ bool ConfigStore::DeviceModels::load(const std::string &config,
                    { msg_error(0, LOG_ERR, msg, config.c_str()); });
 }
 
-bool ConfigStore::DeviceModels::load(const char *config,
-                                     bool suppress_error)
+bool StaticModels::DeviceModels::load(const char *config,
+                                      bool suppress_error)
 {
     std::ifstream in(config);
     return do_load(in, suppress_error, config_data_,
@@ -71,7 +71,8 @@ bool ConfigStore::DeviceModels::load(const char *config,
                    { msg_error(0, LOG_ERR, msg, config); });
 }
 
-const nlohmann::json &ConfigStore::DeviceModels::get_device_model(const std::string &device_id) const
+const nlohmann::json
+&StaticModels::DeviceModels::get_device_model(const std::string &device_id) const
 {
     try
     {
