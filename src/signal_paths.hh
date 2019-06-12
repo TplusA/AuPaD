@@ -1,0 +1,581 @@
+/*
+ * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ *
+ * This file is part of AuPaD.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ * MA  02110-1301, USA.
+ */
+
+#ifndef SIGNAL_PATHS_HH
+#define SIGNAL_PATHS_HH
+
+#include "error.hh"
+#include "messages.h"
+
+#include <string>
+#include <vector>
+#include <unordered_map>
+#include <functional>
+#include <algorithm>
+#include <memory>
+#include <limits>
+
+namespace StaticModels
+{
+
+namespace SignalPaths
+{
+
+class IndexBase
+{
+  protected:
+    static constexpr auto INVALID = std::numeric_limits<unsigned int>::max();
+
+    unsigned int value_;
+
+    explicit IndexBase(unsigned int value): value_(value) {}
+
+  public:
+    IndexBase(const IndexBase &) = default;
+    IndexBase(IndexBase &&) = default;
+    IndexBase &operator=(const IndexBase &) = default;
+    IndexBase &operator=(IndexBase &&) = default;
+
+    virtual ~IndexBase() = default;
+
+    bool is_valid() const { return value_ != INVALID; }
+    unsigned int get() const { return value_; }
+
+    IndexBase &operator++() { ++value_; return *this; }
+};
+
+class Input: public IndexBase
+{
+  public:
+    explicit Input(unsigned int value): IndexBase(value) {}
+    virtual ~Input() = default;
+
+    static Input mk_unconnected() { return Input(INVALID); }
+
+    bool operator==(const Input &other) const { return value_ == other.value_; }
+    bool operator!=(const Input &other) const { return value_ != other.value_; }
+    bool operator>=(const Input &other) const { return value_ >= other.value_; }
+};
+
+class Output: public IndexBase
+{
+  public:
+    explicit Output(unsigned int value): IndexBase(value) {}
+    virtual ~Output() = default;
+
+    static Output mk_unconnected() { return Output(INVALID); }
+
+    bool operator==(const Output &other) const { return value_ == other.value_; }
+    bool operator!=(const Output &other) const { return value_ != other.value_; }
+    bool operator>=(const Output &other) const { return value_ >= other.value_; }
+};
+
+class Selector: public IndexBase
+{
+  public:
+    explicit Selector(unsigned int value): IndexBase(value) {}
+    virtual ~Selector() = default;
+
+    static Selector mk_invalid() { return Selector(INVALID); }
+
+    bool operator==(const Selector &other) const { return value_ == other.value_; }
+    bool operator!=(const Selector &other) const { return value_ != other.value_; }
+    bool operator>=(const Selector &other) const { return value_ >= other.value_; }
+};
+
+/*!
+ * Base class for any element on the signal path defined in the model.
+ */
+class PathElement
+{
+  private:
+    static constexpr auto UNREASONABLE = 50;
+
+  protected:
+    std::string name_;
+    std::vector<const PathElement *> sources_;
+    std::vector<const PathElement *> targets_;
+
+    explicit PathElement(std::string &&name):
+        name_(std::move(name))
+    {}
+
+  public:
+    PathElement(const PathElement &) = delete;
+    PathElement(PathElement &&) = default;
+    PathElement &operator=(const PathElement &) = delete;
+    PathElement &operator=(PathElement &&) = default;
+    virtual ~PathElement() = default;
+
+    const std::string get_name() const { return name_; }
+    const auto &get_targets() const { return targets_; }
+
+    Input find_parent_index(const PathElement &parent) const
+    {
+        const auto it(std::find(sources_.begin(), sources_.end(), &parent));
+        return it != sources_.end()
+            ? Input(std::distance(sources_.begin(), it))
+            : Input::mk_unconnected();
+    }
+
+    bool is_source() const { return sources_.empty(); }
+    bool is_sink() const { return targets_.empty(); }
+
+    void connect(const Output &this_output_index,
+                 PathElement &other, const Input &other_input_index)
+    {
+        if(!this_output_index.is_valid() || !other_input_index.is_valid())
+        {
+            BUG("Tried connecting %s to %s using bad index (%u -> %u)",
+                name_.c_str(), other.name_.c_str(),
+                this_output_index.get(), other_input_index.get());
+            return;
+        }
+        else if(this_output_index >= Output(UNREASONABLE) ||
+                other_input_index >= Input(UNREASONABLE))
+        {
+            BUG("Unreasonably large index when trying to connect "
+                "%s to %s (%u -> %u) [connection ignored]",
+                name_.c_str(), other.name_.c_str(),
+                this_output_index.get(), other_input_index.get());
+            return;
+        }
+
+        if(this_output_index >= Output(targets_.size()))
+            targets_.resize(this_output_index.get() + 1, nullptr);
+        targets_[this_output_index.get()] = &other;
+
+        if(other_input_index >= Input(other.sources_.size()))
+            other.sources_.resize(other_input_index.get() + 1, nullptr);
+        other.sources_[other_input_index.get()] = this;
+    }
+
+    virtual void finalize() const
+    {
+        if(sources_.empty() && targets_.empty())
+            msg_error(0, LOG_NOTICE,
+                      "Element %s is unconnected", name_.c_str());
+    }
+};
+
+/*!
+ * Elements with a static, direct input to output relation.
+ *
+ * Most elements with a single input and a single output will be stored in
+ * objects of this class.
+ */
+class StaticElement: public PathElement
+{
+  public:
+    StaticElement(StaticElement &&) = default;
+    StaticElement &operator=(StaticElement &&) = default;
+
+    explicit StaticElement(std::string &&name):
+        PathElement(std::move(name))
+    {}
+
+    virtual ~StaticElement() = default;
+};
+
+/*!
+ * I/O mapping for all possible selector assignments.
+ *
+ * Conceptually, such a mapping is a set of C binary NxM matrices, where N is
+ * the number of inputs, M the number of outputs, and C the number of choices
+ * for the selector. Element (n, m) in the c-th matrix is 1 if input n is to be
+ * routed to output m while the selector set to c, otherwise it is 0.
+ *
+ * Frequently, these matrices are very specific and sparse, so they are not
+ * necessarily stored as matrices. Their concrete storage scheme is implemented
+ * in derived classes.
+ */
+class Mapping
+{
+  protected:
+    explicit Mapping() = default;
+
+  public:
+    Mapping(const Mapping &) = delete;
+    Mapping(Mapping &&) = default;
+    Mapping &operator=(const Mapping &) = delete;
+    Mapping &operator=(Mapping &&) = default;
+
+    virtual ~Mapping() = default;
+
+    virtual void finalize(unsigned int num_of_inputs,
+                          unsigned int num_of_outputs) const = 0;
+
+    virtual unsigned int number_of_choices() const = 0;
+
+    virtual bool is_connected(const Selector &sel,
+                              const Input &in, const Output &out) const = 0;
+
+    virtual bool for_each_mapped(
+            const Selector &sel,
+            const std::function<void(const Input &, const Output &)> &apply) const = 0;
+};
+
+template <typename T>
+static void throw_on_invalid_mux_demux_values(
+        const std::vector<T> &values, unsigned int number_of_pads,
+        const char *elem_kind, const char *context)
+{
+    if(number_of_pads > 0 &&
+       std::any_of(values.begin(), values.end(),
+            [maximum_value = number_of_pads - 1] (const auto &v)
+            {
+                return v.is_valid() && v.get() > maximum_value;
+            }))
+        Error() << context << ": " << elem_kind
+                << " mapping contains values greater than "
+                << (number_of_pads - 1);
+
+    if(values.size() < 2)
+        Error() << context << ": empty mapping";
+}
+
+/*!
+ * I/O mapping: one out of many to one.
+ *
+ * For each possible value of the selector, the index of its designated input
+ * is stored. These indices can be assigned in any order and may also refer to
+ * no input at all (check #StaticModels::SignalPaths::Input::is_valid()).
+ */
+class MappingMux: public Mapping
+{
+  private:
+    const std::vector<Input> input_by_selector_;
+
+  public:
+    explicit MappingMux(std::vector<Input> &&m):
+        input_by_selector_(std::move(m))
+    {}
+
+    virtual ~MappingMux() = default;
+
+    void finalize(unsigned int num_of_inputs,
+                  unsigned int num_of_outputs) const final override
+    {
+        throw_on_invalid_mux_demux_values(input_by_selector_, num_of_inputs,
+                                          "input", "MappingMux");
+
+        if(num_of_outputs != 1)
+            Error() << "MappingMux: number of outputs must be 1, but have "
+                    << num_of_outputs;
+    }
+
+    unsigned int number_of_choices() const final override
+    {
+        return input_by_selector_.size();
+    }
+
+    bool is_connected(const Selector &sel,
+                      const Input &in, const Output &out) const
+        final override
+    {
+        if(out != Output(0))
+            return false;
+
+        const auto from = input_by_selector_.at(sel.get());
+        return from == in;
+    }
+
+    bool for_each_mapped(
+            const Selector &sel,
+            const std::function<void(const Input &, const Output &)> &apply) const
+        final override
+    {
+        const auto from = input_by_selector_.at(sel.get());
+        if(from.is_valid())
+        {
+            apply(from, Output(0));
+            return true;
+        }
+        else
+            return false;
+    }
+};
+
+/*!
+ * I/O mapping: one to one out of many.
+ *
+ * For each possible value of the selector, its index of its designated output
+ * is stored. These indices can be assigned in any order and may also refer to
+ * no output at all (check #StaticModels::SignalPaths::Output::is_valid()).
+ */
+class MappingDemux: public Mapping
+{
+  private:
+    const std::vector<Output> output_by_selector_;
+
+  public:
+    explicit MappingDemux(std::vector<Output> &&m):
+        output_by_selector_(std::move(m))
+    {}
+
+    virtual ~MappingDemux() = default;
+
+    void finalize(unsigned int num_of_inputs,
+                  unsigned int num_of_outputs) const final override
+    {
+        throw_on_invalid_mux_demux_values(output_by_selector_, num_of_outputs,
+                                          "output", "MappingDemux");
+
+        if(num_of_inputs != 1)
+            Error() << "MappingDemux: number of inputs must be 1, but have "
+                    << num_of_inputs;
+    }
+
+    unsigned int number_of_choices() const final override
+    {
+        return output_by_selector_.size();
+    }
+
+    bool is_connected(const Selector &sel,
+                      const Input &in, const Output &out) const
+        final override
+    {
+        if(in != Input(0))
+            return false;
+
+        const auto to = output_by_selector_.at(sel.get());
+        return out == to;
+    }
+
+    bool for_each_mapped(
+            const Selector &sel,
+            const std::function<void(const Input &, const Output &)> &apply) const
+        final override
+    {
+        const auto to = output_by_selector_.at(sel.get());
+        if(to.is_valid())
+        {
+            apply(Input(0), to);
+            return true;
+        }
+        else
+            return false;
+    }
+};
+
+/*!
+ * Elements for which an I/O mapping is defined.
+ *
+ * These objects store the name of the element's control which selects a
+ * specific I/O mapping; this control is called the selector. Each element can
+ * have at most one selector. For each possible value of the selector, a
+ * #StaticModels::SignalPaths::Mapping object is stored.
+ */
+class SwitchingElement: public PathElement
+{
+  private:
+    std::string selector_;
+    std::unique_ptr<Mapping> mapping_;
+
+    explicit SwitchingElement(std::string &&element_name,
+                              std::string &&selector_name,
+                              std::unique_ptr<Mapping> mapping):
+        PathElement(std::move(element_name)),
+        selector_(std::move(selector_name)),
+        mapping_(std::move(mapping))
+    {
+        if(mapping_ == nullptr)
+            Error() << "Mapping not provided";
+    }
+
+  public:
+    SwitchingElement(SwitchingElement &&) = default;
+    SwitchingElement &operator=(SwitchingElement &&) = default;
+
+    virtual ~SwitchingElement() = default;
+
+    void finalize() const final override
+    {
+        PathElement::finalize();
+        mapping_->finalize(sources_.size(), targets_.size());
+    }
+
+    const std::string &get_selector_name() const { return selector_; }
+
+    bool is_selector_in_range(const Selector &sel) const
+    {
+        return sel.is_valid() && sel.get() < mapping_->number_of_choices();
+    }
+
+    bool is_connected(const Selector &sel, const Input &in, const Output &out) const
+    {
+        return mapping_->is_connected(sel, in, out);
+    }
+
+    static SwitchingElement mk_mux(std::string &&element_name,
+                                   std::string &&selector_name,
+                                   std::vector<Input> &&m)
+    {
+        return SwitchingElement(std::move(element_name), std::move(selector_name),
+                                std::make_unique<MappingMux>(std::move(m)));
+    }
+
+    static SwitchingElement mk_demux(std::string &&element_name,
+                                     std::string &&selector_name,
+                                     std::vector<Output> &&m)
+    {
+        return SwitchingElement(std::move(element_name), std::move(selector_name),
+                                std::make_unique<MappingDemux>(std::move(m)));
+    }
+};
+
+/*!
+ * Static signal path graph as defined for an appliance.
+ *
+ * Note that this object describes the whole static signal path defined for one
+ * appliance type, not the active path inside a specific instance.
+ */
+class Appliance
+{
+  private:
+    std::string name_;
+    std::vector<StaticElement> static_elements_;
+    std::vector<SwitchingElement> switching_elements_;
+    std::unordered_map<std::string, PathElement &> elements_by_name_;
+
+  public:
+    Appliance(const Appliance &) = delete;
+    Appliance(Appliance &&) = default;
+    Appliance &operator=(const Appliance &) = delete;
+    Appliance &operator=(Appliance &&) = default;
+
+    explicit Appliance(std::string &&name,
+                       std::vector<StaticElement> &&static_elements,
+                       std::vector<SwitchingElement> &&switching_elements,
+                       std::unordered_map<std::string, PathElement &> &&elements_by_name):
+        name_(std::move(name)),
+        static_elements_(std::move(static_elements)),
+        switching_elements_(std::move(switching_elements)),
+        elements_by_name_(std::move(elements_by_name))
+    {}
+
+    const std::string &get_name() const { return name_; }
+
+    void for_each_source(const std::function<void(const PathElement &src)> &apply) const
+    {
+        for(const auto &elem : static_elements_)
+            if(elem.is_source())
+                apply(elem);
+
+        for(const auto &elem : switching_elements_)
+            if(elem.is_source())
+                apply(elem);
+    }
+
+    const PathElement *lookup_element(const std::string &name) const
+    {
+        try
+        {
+            return &elements_by_name_.at(name);
+        }
+        catch(const std::out_of_range &e)
+        {
+            return nullptr;
+        }
+    }
+
+    const SwitchingElement *lookup_switching_element(const std::string &name) const
+    {
+        return dynamic_cast<const SwitchingElement *>(lookup_element(name));
+    }
+};
+
+/*!
+ * Builder for #StaticModels::SignalPaths::Appliance objects.
+ */
+class ApplianceBuilder
+{
+  private:
+    std::string name_;
+    std::vector<StaticElement> static_elements_;
+    std::vector<SwitchingElement> switching_elements_;
+    std::unordered_map<std::string, PathElement &> elements_by_name_;
+    bool is_adding_elements_allowed_;
+
+  public:
+    ApplianceBuilder(const ApplianceBuilder &) = delete;
+
+    explicit ApplianceBuilder(std::string &&name):
+        name_(std::move(name)),
+        is_adding_elements_allowed_(true)
+    {}
+
+    void add_element(StaticElement &&elem)
+    {
+        if(is_adding_elements_allowed_)
+            static_elements_.emplace_back(std::move(elem));
+        else
+            Error() << "Adding StaticElement element not allowed";
+    }
+
+    void add_element(SwitchingElement &&elem)
+    {
+        if(is_adding_elements_allowed_)
+            switching_elements_.emplace_back(std::move(elem));
+        else
+            Error() << "Adding SwitchingElement element not allowed";
+    }
+
+    PathElement &lookup_element(const std::string &name) const
+    {
+        return elements_by_name_.at(name);
+    }
+
+    void no_more_elements()
+    {
+        if(!is_adding_elements_allowed_)
+            return;
+
+        is_adding_elements_allowed_ = false;
+
+        for(auto &e : static_elements_)
+            if(!elements_by_name_.insert({e.get_name(), e}).second)
+                Error() << "Duplicate element name \"" << e.get_name() << "\"";
+
+        for(auto &e : switching_elements_)
+            if(!elements_by_name_.insert({e.get_name(), e}).second)
+                Error() << "Duplicate element name \"" << e.get_name() << "\"";
+    }
+
+    Appliance build()
+    {
+        no_more_elements();
+
+        for(auto &e : elements_by_name_)
+            e.second.finalize();
+
+        return Appliance(std::move(name_),
+                         std::move(static_elements_),
+                         std::move(switching_elements_),
+                         std::move(elements_by_name_));
+    }
+};
+
+}
+
+}
+
+#endif /* !SIGNAL_PATHS_HH */

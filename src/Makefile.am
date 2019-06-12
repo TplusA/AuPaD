@@ -39,7 +39,8 @@ aupad_LDADD = $(AUPAD_DEPENDENCIES_LIBS) $(noinst_LTLIBRARIES)
 
 noinst_LTLIBRARIES = \
     libconfigstore_roon.la \
-    libconfigstore.la
+    libconfigstore.la \
+    liblivedata.la
 
 libconfigstore_la_SOURCES = \
     configstore.cc configstore.hh configvalue.hh fixpoint.hh \
@@ -56,6 +57,12 @@ libconfigstore_roon_la_SOURCES = \
     configstore_json.hh configstore_iter.hh configstore_changes.hh
 libconfigstore_roon_la_CPPFLAGS = $(AM_CPPFLAGS)
 libconfigstore_roon_la_CXXFLAGS = $(AM_CXXFLAGS)
+
+liblivedata_la_SOURCES = \
+    live_data.cc live_data.hh \
+    signal_paths.hh
+liblivedata_la_CPPFLAGS = $(AM_CPPFLAGS)
+liblivedata_la_CXXFLAGS = $(AM_CXXFLAGS)
 
 LIBS += \
     dbus/libtaddybus.la \

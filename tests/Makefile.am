@@ -20,7 +20,7 @@
 #
 
 if WITH_DOCTEST
-check_PROGRAMS = test_configstore test_configstore_roon
+check_PROGRAMS = test_configstore test_configstore_roon test_signal_paths
 
 TESTS = run_tests.sh
 
@@ -64,6 +64,17 @@ test_configstore_roon_LDADD = \
     $(top_builddir)/src/libconfigstore_roon.la
 test_configstore_roon_CPPFLAGS = $(AM_CPPFLAGS)
 test_configstore_roon_CXXFLAGS = $(AM_CXXFLAGS)
+
+test_signal_paths_SOURCES = \
+    test_signal_paths.cc \
+    mock_os.hh mock_os.cc \
+    mock_messages.hh mock_messages.cc \
+    mock_expectation.hh
+test_signal_paths_LDADD = \
+    libtestrunner.la \
+    $(top_builddir)/src/liblivedata.la
+test_signal_paths_CPPFLAGS = $(AM_CPPFLAGS)
+test_signal_paths_CXXFLAGS = $(AM_CXXFLAGS)
 
 BUILT_SOURCES = test_models.json
 
