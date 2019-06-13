@@ -30,7 +30,7 @@ static gboolean dbushandler_register_client(
         tdbusaupadMonitor *const object,
         GDBusMethodInvocation *const invocation,
         TDBus::MethodHandlerTraits<TDBus::AuPaDMonitorRegister>:: template UserData<
-            MonitorManager &
+            ClientPlugin::MonitorManager &
         > *const d)
 {
     try
@@ -59,7 +59,7 @@ static gboolean dbushandler_unregister_client(
         tdbusaupadMonitor *const object,
         GDBusMethodInvocation *const invocation,
         TDBus::MethodHandlerTraits<TDBus::AuPaDMonitorUnregister>:: template UserData<
-            MonitorManager &
+            ClientPlugin::MonitorManager &
         > *const d)
 {
     try
@@ -82,8 +82,8 @@ static gboolean dbushandler_unregister_client(
     return TRUE;
 }
 
-void MonitorManager::mk_registration_interface(const char *object_path,
-                                               ConfigStore::Plugin &plugin)
+void ClientPlugin::MonitorManager::mk_registration_interface(
+        const char *object_path, Plugin &plugin)
 {
     if(plugins_.find(object_path) != plugins_.end())
     {
@@ -102,8 +102,9 @@ void MonitorManager::mk_registration_interface(const char *object_path,
                                      std::move(iface)));
 }
 
-bool MonitorManager::register_client(const char *object_path,
-                                     GDBusConnection *connection, const char *client)
+bool ClientPlugin::MonitorManager::register_client(
+        const char *object_path, GDBusConnection *connection,
+        const char *client)
 {
     auto &entry = plugins_.at(object_path);
 
@@ -139,7 +140,8 @@ bool MonitorManager::register_client(const char *object_path,
     return true;
 }
 
-bool MonitorManager::unregister_client(const char *object_path, const char *client)
+bool ClientPlugin::MonitorManager::unregister_client(const char *object_path,
+                                                     const char *client)
 {
     auto &entry = plugins_.at(object_path);
 

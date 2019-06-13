@@ -31,12 +31,12 @@
 #include "device_models.hh"
 #include "messages.h"
 
-void ConfigStore::RoonOutput::registered()
+void ClientPlugin::Roon::registered()
 {
     msg_info("Registered plugin \"%s\"", name_.c_str());
 }
 
-void ConfigStore::RoonOutput::unregistered()
+void ClientPlugin::Roon::unregistered()
 {
     msg_info("Unregistered plugin \"%s\"", name_.c_str());
 }
@@ -338,8 +338,8 @@ static bool add_entry_for_name(const ConfigStore::ConstSettingsJSON &js,
     return false;
 }
 
-void ConfigStore::RoonOutput::report_changes(const Settings &settings,
-                                             const Changes &changes) const
+void ClientPlugin::Roon::report_changes(const ConfigStore::Settings &settings,
+                                        const ConfigStore::Changes &changes) const
 {
     nlohmann::json output;
     const ConfigStore::ConstSettingsJSON js(settings);
@@ -359,8 +359,8 @@ void ConfigStore::RoonOutput::report_changes(const Settings &settings,
         emit_audio_signal_path_fn_("[]", false);
 }
 
-bool ConfigStore::RoonOutput::full_report(const Settings &settings,
-                                          std::string &report) const
+bool ClientPlugin::Roon::full_report(const ConfigStore::Settings &settings,
+                                     std::string &report) const
 {
     nlohmann::json output;
     const ConfigStore::ConstSettingsJSON js(settings);

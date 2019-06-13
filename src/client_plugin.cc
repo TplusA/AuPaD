@@ -24,18 +24,18 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "configstore.hh"
-#include "configstore_plugin_manager.hh"
+#include "client_plugin_manager.hh"
 #include "device_models.hh"
 #include "messages.h"
 
-void ConfigStore::PluginManager::register_plugin(std::unique_ptr<Plugin> plugin)
+void ClientPlugin::PluginManager::register_plugin(std::unique_ptr<Plugin> plugin)
 {
     log_assert(plugin != nullptr);
     plugins_.emplace_back(std::move(plugin));
     plugins_.back()->registered();
 }
 
-void ConfigStore::PluginManager::shutdown() noexcept
+void ClientPlugin::PluginManager::shutdown() noexcept
 {
     auto plugins(std::move(plugins_));
 
@@ -53,8 +53,8 @@ void ConfigStore::PluginManager::shutdown() noexcept
     }
 }
 
-void ConfigStore::PluginManager::report_changes(const ConfigStore::Settings &settings,
-                                                const ConfigStore::Changes &changes) const
+void ClientPlugin::PluginManager::report_changes(const ConfigStore::Settings &settings,
+                                                 const ConfigStore::Changes &changes) const
 {
     // cppcheck-suppress accessMoved
     for(const auto &p : plugins_)

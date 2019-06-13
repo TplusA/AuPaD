@@ -37,7 +37,7 @@ TEST_SUITE_BEGIN("Configuration store");
 class Fixture
 {
   protected:
-    StaticModels::DeviceModels models;
+    StaticModels::DeviceModelsDatabase models;
     ConfigStore::Settings settings;
     std::unique_ptr<MockMessages::Mock> mock_messages;
 

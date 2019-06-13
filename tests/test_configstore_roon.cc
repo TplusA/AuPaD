@@ -27,7 +27,7 @@
 
 #include "report_roon.hh"
 
-#include "configstore_plugin_manager.hh"
+#include "client_plugin_manager.hh"
 #include "configstore.hh"
 #include "configstore_json.hh"
 #include "configstore_changes.hh"
@@ -115,8 +115,8 @@ class RoonUpdate
 class Fixture
 {
   protected:
-    ConfigStore::PluginManager pm;
-    StaticModels::DeviceModels models;
+    ClientPlugin::PluginManager pm;
+    StaticModels::DeviceModelsDatabase models;
     ConfigStore::Settings settings;
     std::unique_ptr<MockMessages::Mock> mock_messages;
 
@@ -132,7 +132,7 @@ class Fixture
         expect<MockMessages::MsgInfo>(mock_messages,
                                       "Registered plugin \"Roon\"", false);
 
-        auto roon(std::make_unique<ConfigStore::RoonOutput>(
+        auto roon(std::make_unique<ClientPlugin::Roon>(
             [this] (const auto &asp, bool full) { roon_update.send(asp, full); }));
         roon->add_client();
         pm.register_plugin(std::move(roon));

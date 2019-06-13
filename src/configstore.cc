@@ -409,7 +409,7 @@ class Device
 class ConfigStore::Settings::Impl
 {
   private:
-    const StaticModels::DeviceModels &models_;
+    const StaticModels::DeviceModelsDatabase &models_database_;
     std::unordered_map<std::string, Device> devices_;
     std::unique_ptr<ChangeLog> log_;
 
@@ -419,8 +419,8 @@ class ConfigStore::Settings::Impl
     Impl &operator=(const Impl &) = delete;
     Impl &operator=(Impl &&) = default;
 
-    explicit Impl(const StaticModels::DeviceModels &models):
-        models_(models)
+    explicit Impl(const StaticModels::DeviceModelsDatabase &models_database):
+        models_database_(models_database)
     {}
 
     /*
@@ -429,7 +429,7 @@ class ConfigStore::Settings::Impl
      */
     static std::unique_ptr<Impl> make_fresh(std::unique_ptr<Impl> old)
     {
-        return std::make_unique<Impl>(old->models_);
+        return std::make_unique<Impl>(old->models_database_);
     }
 
     void update(const nlohmann::json &j);
@@ -1078,7 +1078,7 @@ const nlohmann::json &ConfigStore::Settings::Impl::retrieve_control_definition_f
     static const nlohmann::json empty;
 
     const auto dev_and_qualified_ctrlname(get_device_and_element_name(qualified_control_name, devices_));
-    const auto &model(models_.get_device_model(std::get<0>(dev_and_qualified_ctrlname).device_id_));
+    const auto &model(models_database_.get_device_model(std::get<0>(dev_and_qualified_ctrlname).device_id_));
 
     if(model.is_null())
         return empty;
@@ -1103,8 +1103,8 @@ const nlohmann::json &ConfigStore::Settings::Impl::retrieve_control_definition_f
     return empty;
 }
 
-ConfigStore::Settings::Settings(const StaticModels::DeviceModels &models):
-    impl_(std::make_unique<Impl>(models))
+ConfigStore::Settings::Settings(const StaticModels::DeviceModelsDatabase &models_database):
+    impl_(std::make_unique<Impl>(models_database))
 {}
 
 ConfigStore::Settings::~Settings() = default;

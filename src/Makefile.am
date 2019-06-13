@@ -40,11 +40,11 @@ aupad_LDADD = $(AUPAD_DEPENDENCIES_LIBS) $(noinst_LTLIBRARIES)
 noinst_LTLIBRARIES = \
     libconfigstore_roon.la \
     libconfigstore.la \
-    liblivedata.la
+    libsigpath.la
 
 libconfigstore_la_SOURCES = \
     configstore.cc configstore.hh configvalue.hh fixpoint.hh \
-    configstore_plugin.cc configstore_plugin_manager.hh configstore_plugin.hh \
+    client_plugin.cc client_plugin_manager.hh client_plugin.hh \
     configstore_json.hh configstore_iter.hh configstore_changes.hh \
     device_models.cc device_models.hh
 libconfigstore_la_CPPFLAGS = $(AM_CPPFLAGS)
@@ -52,17 +52,17 @@ libconfigstore_la_CXXFLAGS = $(AM_CXXFLAGS)
 
 libconfigstore_roon_la_SOURCES = \
     report_roon.cc report_roon.hh \
-    configstore_plugin.hh json.hh \
+    client_plugin.hh json.hh \
     configstore.hh configvalue.hh fixpoint.hh \
     configstore_json.hh configstore_iter.hh configstore_changes.hh
 libconfigstore_roon_la_CPPFLAGS = $(AM_CPPFLAGS)
 libconfigstore_roon_la_CXXFLAGS = $(AM_CXXFLAGS)
 
-liblivedata_la_SOURCES = \
-    live_data.cc live_data.hh \
+libsigpath_la_SOURCES = \
+    signal_path_tracker.cc signal_path_tracker.hh \
     signal_paths.hh
-liblivedata_la_CPPFLAGS = $(AM_CPPFLAGS)
-liblivedata_la_CXXFLAGS = $(AM_CXXFLAGS)
+libsigpath_la_CPPFLAGS = $(AM_CPPFLAGS)
+libsigpath_la_CXXFLAGS = $(AM_CXXFLAGS)
 
 LIBS += \
     dbus/libtaddybus.la \

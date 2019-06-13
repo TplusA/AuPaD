@@ -72,7 +72,7 @@ test_signal_paths_SOURCES = \
     mock_expectation.hh
 test_signal_paths_LDADD = \
     libtestrunner.la \
-    $(top_builddir)/src/liblivedata.la
+    $(top_builddir)/src/libsigpath.la
 test_signal_paths_CPPFLAGS = $(AM_CPPFLAGS)
 test_signal_paths_CXXFLAGS = $(AM_CXXFLAGS)
 

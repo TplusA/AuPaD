@@ -19,12 +19,12 @@
  * MA  02110-1301, USA.
  */
 
-#ifndef LIVE_DATA_HH
-#define LIVE_DATA_HH
+#ifndef SIGNAL_PATH_TRACKER_HH
+#define SIGNAL_PATH_TRACKER_HH
 
 #include "signal_paths.hh"
 
-namespace LiveData
+namespace ModelCompliant
 {
 
 /*!
@@ -80,4 +80,4 @@ class SignalPathTracker
 
 }
 
-#endif /* !LIVE_DATA_HH */
+#endif /* !SIGNAL_PATH_TRACKER_HH */

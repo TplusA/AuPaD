@@ -36,17 +36,17 @@ namespace StaticModels
  * This class is basically a JSON object with a name, extended by some helper
  * functions. Not much validation of model integrity is done in here.
  */
-class DeviceModels
+class DeviceModelsDatabase
 {
   private:
     nlohmann::json config_data_;
 
   public:
-    DeviceModels(const DeviceModels &) = delete;
-    DeviceModels(DeviceModels &&) = default;
-    DeviceModels &operator=(const DeviceModels &) = delete;
-    DeviceModels &operator=(DeviceModels &&) = default;
-    explicit DeviceModels() = default;
+    DeviceModelsDatabase(const DeviceModelsDatabase &) = delete;
+    DeviceModelsDatabase(DeviceModelsDatabase &&) = default;
+    DeviceModelsDatabase &operator=(const DeviceModelsDatabase &) = delete;
+    DeviceModelsDatabase &operator=(DeviceModelsDatabase &&) = default;
+    explicit DeviceModelsDatabase() = default;
 
     bool load(const std::string &config, bool suppress_error = false);
     bool load(const char *config, bool suppress_error = false);

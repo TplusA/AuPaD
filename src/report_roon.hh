@@ -22,25 +22,25 @@
 #ifndef REPORT_ROON_HH
 #define REPORT_ROON_HH
 
-#include "configstore_plugin.hh"
+#include "client_plugin.hh"
 
 #include <functional>
 
-namespace ConfigStore
+namespace ClientPlugin
 {
 
-class RoonOutput: public Plugin
+class Roon: public Plugin
 {
   private:
     const std::function<void(const std::string &, bool)> emit_audio_signal_path_fn_;
 
   public:
-    RoonOutput(const RoonOutput &) = delete;
-    RoonOutput(RoonOutput &&) = default;
-    RoonOutput &operator=(const RoonOutput &) = delete;
-    RoonOutput &operator=(RoonOutput &&) = default;
+    Roon(const Roon &) = delete;
+    Roon(Roon &&) = default;
+    Roon &operator=(const Roon &) = delete;
+    Roon &operator=(Roon &&) = default;
 
-    explicit RoonOutput(std::function<void(const std::string &asp,
+    explicit Roon(std::function<void(const std::string &asp,
                                            bool is_full_signal_path)> &&emit_path):
         Plugin("Roon"),
         emit_audio_signal_path_fn_(std::move(emit_path))
@@ -48,8 +48,10 @@ class RoonOutput: public Plugin
 
     void registered() final override;
     void unregistered() final override;
-    void report_changes(const Settings &settings, const Changes &changes) const final override;
-    bool full_report(const Settings &settings, std::string &report) const final override;
+    void report_changes(const ConfigStore::Settings &settings,
+                        const ConfigStore::Changes &changes) const final override;
+    bool full_report(const ConfigStore::Settings &settings,
+                     std::string &report) const final override;
 };
 
 }

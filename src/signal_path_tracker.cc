@@ -23,9 +23,9 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include "live_data.hh"
+#include "signal_path_tracker.hh"
 
-bool LiveData::SignalPathTracker::select(
+bool ModelCompliant::SignalPathTracker::select(
         const std::string &element_name,
         const StaticModels::SignalPaths::Selector &sel)
 {
@@ -63,7 +63,7 @@ bool LiveData::SignalPathTracker::select(
     return false;
 }
 
-bool LiveData::SignalPathTracker::floating(const std::string &element_name)
+bool ModelCompliant::SignalPathTracker::floating(const std::string &element_name)
 {
     const auto *const elem = dev_.lookup_switching_element(element_name);
 
@@ -96,14 +96,14 @@ class DepthFirst
                         unsigned int depth)>;
 
   private:
-    const LiveData::SignalPathTracker &tracker_;
+    const ModelCompliant::SignalPathTracker &tracker_;
     const TraverseCallbackFn &apply_;
     unsigned int depth_;
 
   public:
     DepthFirst(const DepthFirst &) = delete;
 
-    explicit DepthFirst(const LiveData::SignalPathTracker &tracker,
+    explicit DepthFirst(const ModelCompliant::SignalPathTracker &tracker,
                         unsigned int depth, const TraverseCallbackFn &apply):
         tracker_(tracker),
         apply_(apply),
@@ -222,8 +222,8 @@ collect(const StaticModels::SignalPaths::PathElement *parent,
         const StaticModels::SignalPaths::Input &elem_input_index,
         const StaticModels::SignalPaths::Output &elem_output_index,
         unsigned int depth,
-        const LiveData::SignalPathTracker &tracker,
-        LiveData::SignalPathTracker::ActivePath &path)
+        const ModelCompliant::SignalPathTracker &tracker,
+        ModelCompliant::SignalPathTracker::ActivePath &path)
 {
     const auto *sw =
         dynamic_cast<const StaticModels::SignalPaths::SwitchingElement *>(&elem);
@@ -246,7 +246,8 @@ collect(const StaticModels::SignalPaths::PathElement *parent,
     return DepthFirst::TraverseAction::CONTINUE;
 }
 
-bool LiveData::SignalPathTracker::enumerate_active_signal_paths(const EnumerateCallbackFn &fn) const
+bool ModelCompliant::SignalPathTracker::enumerate_active_signal_paths(
+        const EnumerateCallbackFn &fn) const
 {
     std::vector<std::pair<const StaticModels::SignalPaths::PathElement *, bool>> path;
 

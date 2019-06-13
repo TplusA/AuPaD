@@ -26,7 +26,7 @@
 #include <doctest.h>
 
 #include "signal_paths.hh"
-#include "live_data.hh"
+#include "signal_path_tracker.hh"
 
 #include "mock_messages.hh"
 
@@ -61,7 +61,7 @@ TEST_SUITE_BEGIN("Static signal paths");
 
 static bool append_path(
         std::vector<std::vector<const StaticModels::SignalPaths::PathElement *>> &paths,
-        const LiveData::SignalPathTracker::ActivePath &path)
+        const ModelCompliant::SignalPathTracker::ActivePath &path)
 {
     CHECK(paths.empty());
     std::vector<const StaticModels::SignalPaths::PathElement *> elements;
@@ -73,7 +73,7 @@ static bool append_path(
 }
 
 static void expect_audio_path(
-        const LiveData::SignalPathTracker &tracker,
+        const ModelCompliant::SignalPathTracker &tracker,
         const std::vector<const StaticModels::SignalPaths::PathElement *> &expected)
 {
     std::vector<std::vector<const StaticModels::SignalPaths::PathElement *>> paths;
@@ -129,7 +129,7 @@ TEST_CASE_FIXTURE(Fixture, "Device with one mux element")
 
     const auto dev(builder.build());
 
-    LiveData::SignalPathTracker tracker(dev, true);
+    ModelCompliant::SignalPathTracker tracker(dev, true);
 
     CHECK(tracker.select("input_select", Selector(0)));
     std::vector<const StaticModels::SignalPaths::PathElement *> expected
@@ -204,7 +204,7 @@ TEST_CASE_FIXTURE(Fixture, "Device with one demux element")
 
     const auto dev(builder.build());
 
-    LiveData::SignalPathTracker tracker(dev, true);
+    ModelCompliant::SignalPathTracker tracker(dev, true);
 
     CHECK(tracker.select("output_select", Selector(0)));
     std::vector<const StaticModels::SignalPaths::PathElement *> expected
@@ -286,7 +286,7 @@ TEST_CASE_FIXTURE(Fixture, "Device with two mux and one demux elements")
 
     const auto dev(builder.build());
 
-    LiveData::SignalPathTracker tracker(dev, true);
+    ModelCompliant::SignalPathTracker tracker(dev, true);
 
     CHECK(tracker.enumerate_active_signal_paths(
             [] (const auto &p) { FAIL("unexpected"); return false; }));

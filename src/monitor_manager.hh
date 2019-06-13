@@ -24,7 +24,7 @@
 
 #include "dbus.hh"
 #include "dbus/taddybus.hh"
-#include "configstore_plugin.hh"
+#include "client_plugin.hh"
 
 #include <map>
 #include <set>
@@ -32,6 +32,9 @@
 #include <memory>
 
 struct _tdbusaupadMonitor;
+
+namespace ClientPlugin
+{
 
 /*!
  * Management of client registration objects for plugins.
@@ -54,7 +57,7 @@ class MonitorManager
      * Mapping of object path to plugin-related data associated with the path.
      */
     std::map<std::string,
-             std::tuple<ConfigStore::Plugin *, std::set<std::string>,
+             std::tuple<Plugin *, std::set<std::string>,
                         std::unique_ptr<TDBus::Iface<struct _tdbusaupadMonitor>>>>
     plugins_;
 
@@ -78,8 +81,7 @@ class MonitorManager
     /*!
      * Export the \c de.tahifi.AuPaD.Monitor interface on given path.
      */
-    void mk_registration_interface(const char *object_path,
-                                   ConfigStore::Plugin &plugin);
+    void mk_registration_interface(const char *object_path, Plugin &plugin);
 
     /*!
      * Called in D-Bus context from method handler.
@@ -92,5 +94,7 @@ class MonitorManager
      */
     bool unregister_client(const char *object_path, const char *client);
 };
+
+}
 
 #endif /* !MONITOR_MANAGER_HH */
