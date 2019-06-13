@@ -22,10 +22,8 @@
 #ifndef DEVICE_MODELS_HH
 #define DEVICE_MODELS_HH
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wswitch-enum"
-#include "json.hh"
-#pragma GCC diagnostic pop
+#include "element.hh"
+#include "signal_paths.hh"
 
 namespace StaticModels
 {
@@ -50,7 +48,35 @@ class DeviceModelsDatabase
 
     bool load(const std::string &config, bool suppress_error = false);
     bool load(const char *config, bool suppress_error = false);
-    const nlohmann::json &get_device_model(const std::string &device_id) const;
+    const nlohmann::json &get_device_model_definition(const std::string &device_id) const;
+};
+
+/*!
+ * A complete model for a specific appliance, fully checked.
+ */
+class DeviceModel
+{
+  private:
+    std::string name_;
+    std::unordered_map<std::string, std::unique_ptr<Elements::Element>> elements_;
+    SignalPaths::Appliance signal_path_;
+
+    explicit DeviceModel(
+            std::string &&name,
+            std::unordered_map<std::string, std::unique_ptr<Elements::Element>> &&elements,
+            SignalPaths::Appliance &&signal_path):
+        name_(std::move(name)),
+        elements_(std::move(elements)),
+        signal_path_(std::move(signal_path))
+    {}
+
+  public:
+    DeviceModel(const DeviceModel &) = delete;
+    DeviceModel(DeviceModel &&) = default;
+    DeviceModel &operator=(const DeviceModel &) = delete;
+    DeviceModel &operator=(DeviceModel &&) = default;
+
+    static DeviceModel mk_model(std::string &&name, const nlohmann::json &definition);
 };
 
 }

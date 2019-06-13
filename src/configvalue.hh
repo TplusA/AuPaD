@@ -25,6 +25,11 @@
 #include "fixpoint.hh"
 #include "error.hh"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch-enum"
+#include "json.hh"
+#pragma GCC diagnostic pop
+
 #include <string>
 
 namespace ConfigStore
@@ -83,6 +88,34 @@ class Value
         value_(std::move(value))
     {
         validate();
+    }
+
+    bool is_of_type(ValueType vt) const { return type_ == vt; }
+    bool equals_type_of(const Value &other) const { return type_ == other.type_; }
+
+    bool is_numeric() const
+    {
+        switch(type_)
+        {
+          case ValueType::VT_VOID:
+          case ValueType::VT_ASCIIZ:
+          case ValueType::VT_BOOL:
+            break;
+
+          case ValueType::VT_INT8:
+          case ValueType::VT_UINT8:
+          case ValueType::VT_INT16:
+          case ValueType::VT_UINT16:
+          case ValueType::VT_INT32:
+          case ValueType::VT_UINT32:
+          case ValueType::VT_INT64:
+          case ValueType::VT_UINT64:
+          case ValueType::VT_DOUBLE:
+          case ValueType::VT_TA_FIX_POINT:
+            return true;
+        }
+
+        return false;
     }
 
     const auto &get_value() const { return value_; }

@@ -118,6 +118,10 @@ class DepthFirst
             if(!source.second)
                 continue;
 
+            /* FIXME: sub-elements need to be handled properly */
+            if(source.first->is_sub_element())
+                continue;
+
             switch(apply_(nullptr, *source.first,
                           StaticModels::SignalPaths::Input::mk_unconnected(),
                           StaticModels::SignalPaths::Output(0),

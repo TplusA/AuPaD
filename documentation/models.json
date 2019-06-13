@@ -135,8 +135,8 @@
                         "bluetooth":           "input_select.in7",
                         "disc_drive":          "input_select.in8",
                         "usb_dac_in":          "input_select.in9",
-                        "input_select.out0":   "digital_out",
-                        "input_select.out1":   "dsd_select",
+                        "input_select":        "digital_out",
+                        "input_select":        "dsd_select",
                         "dsd_select.out0":     "ta_dac",
                         "dsd_select.out1":     [ "dsp", "digital_out" ],
                         "dsp":                 "dac",
@@ -152,16 +152,16 @@
                         "mapping": "mux",
                         "mapping_table": {
                             "disabled": [
-                                "input_select.in0", null,
-                                "input_select.in1", null,
-                                "input_select.in2", null,
-                                "input_select.in3", null,
-                                "input_select.in4", null,
-                                "input_select.in5", null,
-                                "input_select.in6", null,
-                                "input_select.in7", null,
-                                "input_select.in8", null,
-                                "input_select.in9", null
+                                "in0", null,
+                                "in1", null,
+                                "in2", null,
+                                "in3", null,
+                                "in4", null,
+                                "in5", null,
+                                "in6", null,
+                                "in7", null,
+                                "in8", null,
+                                "in9", null
                             ]
                         }
                     }
@@ -459,8 +459,8 @@
                         "select": "pre_out_enable@enable",
                         "mapping": "table",
                         "mapping_table": {
-                            "on":  [ "pre_out_enable.in0", "pre_out_enable.out0" ],
-                            "off": [ "pre_out_enable.in0", null ]
+                            "on":  [ "in0", "out0" ],
+                            "off": [ "in0", null ]
                         }
                     }
                 },
@@ -802,6 +802,13 @@
                     }
                 },
                 {
+                    "id": "analog_or_digital",
+                    "element": {
+                        "description": "Forward as analog or digital signal",
+                        "controls": { "is_digital": { "type": "on_off" } }
+                    }
+                },
+                {
                     "id": "adc",
                     "element": { "description": "A/D converter" }
                 }
@@ -819,9 +826,10 @@
                         "tuner_dab":         "input_select.in7",
                         "bluetooth":         "input_select.in8",
                         "disc_drive":        "input_select.in9",
-                        "input_select.out0": "adc",
+                        "input_select":      "analog_or_digital",
+                        "analog_or_digital.out0": "adc",
                         "adc":               "dsp",
-                        "input_select.out1": [ "dsp", "digital_out" ],
+                        "analog_or_digital.out1": [ "dsp", "digital_out" ],
                         "dsp.out0":          [ "analog_line_out", "headphone_out" ],
                         "dsp.out1":          "subwoofer_out",
                         "dsp.out2":          "amp",
@@ -836,11 +844,17 @@
                 },
                 {
                     "io_mapping": {
+                        "select": "analog_or_digital@is_digital",
+                        "mapping": "demux"
+                    }
+                },
+                {
+                    "io_mapping": {
                         "select": "amp@enable",
                         "mapping": "table",
                         "mapping_table": {
-                            "on":  [ "amp.in0", "amp.out0" ],
-                            "off": [ "amp.in0", null ]
+                            "on":  [ "in0", "out0" ],
+                            "off": [ "in0", null ]
                         }
                     }
                 }

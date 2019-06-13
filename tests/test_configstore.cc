@@ -150,6 +150,8 @@ TEST_CASE_FIXTURE(Fixture, "Single unconfigured instance")
                 { "op": "add_instance", "name": "self", "id": "MP3100HV" }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input);
 
     const auto expected_json = R"({ "devices": { "self": "MP3100HV" }})"_json;
@@ -167,6 +169,8 @@ TEST_CASE_FIXTURE(Fixture, "Single unconfigured instance through JSON settings")
             { "name", "self" },
             { "id", "MP3100HV" }
         });
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     js.update(input);
 
     const nlohmann::json expected_json = { { "devices", { { "self", "MP3100HV" } } } };
@@ -182,6 +186,10 @@ TEST_CASE_FIXTURE(Fixture, "Two unconfigured instances")
                 { "op": "add_instance", "name": "pa", "id": "PA3000HV" }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input);
 
     const auto expected_json = R"(
@@ -204,6 +212,10 @@ TEST_CASE_FIXTURE(Fixture, "Three unconfigured instances")
                 { "op": "add_instance", "name": "b", "id": "PA3000HV" }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input);
 
     const auto expected_json = R"(
@@ -227,6 +239,12 @@ TEST_CASE_FIXTURE(Fixture, "Remove one out of three unconfigured instances")
                 { "op": "add_instance", "name": "b", "id": "PA2000R" }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
     const std::string input2 = R"(
@@ -255,6 +273,8 @@ TEST_CASE_FIXTURE(Fixture, "Clear all instances")
                 { "op": "add_instance", "name": "self", "id": "R1000E" }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
     const std::string input2 = R"(
@@ -292,6 +312,8 @@ TEST_CASE_FIXTURE(Fixture, "Full initial audio path information")
                 }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input);
 
     const auto expected_json = R"(
@@ -337,6 +359,8 @@ TEST_CASE_FIXTURE(Fixture, "Update single value after initial audio path informa
                 }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
     const std::string input2 = R"(
@@ -391,6 +415,8 @@ TEST_CASE_FIXTURE(Fixture, "Set single value, purge remaining settings")
                 }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
     const std::string input2 = R"(
@@ -438,6 +464,8 @@ TEST_CASE_FIXTURE(Fixture, "Unset one element value, make it an unknown value")
                 }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
     const std::string input2 = R"(
@@ -477,6 +505,8 @@ TEST_CASE_FIXTURE(Fixture, "Unset values of all controls in an element")
                 }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
     {
@@ -550,6 +580,12 @@ TEST_CASE_FIXTURE(Fixture, "Connect audio output of one instance to input of ano
                 }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input);
 
     const auto expected_json = R"(
@@ -614,6 +650,20 @@ void Fixture::bunch_of_connected_instances(bool clear_change_log)
                 { "op": "connect", "from": "c.o1", "to": "e.i2" }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input);
 
     const auto expected_json = R"(

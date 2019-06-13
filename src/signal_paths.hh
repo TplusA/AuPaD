@@ -28,6 +28,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <set>
 #include <functional>
 #include <algorithm>
 #include <memory>
@@ -73,6 +74,7 @@ class Input: public IndexBase
     bool operator==(const Input &other) const { return value_ == other.value_; }
     bool operator!=(const Input &other) const { return value_ != other.value_; }
     bool operator>=(const Input &other) const { return value_ >= other.value_; }
+    bool operator<(const Input &other) const { return value_ < other.value_; }
 };
 
 class Output: public IndexBase
@@ -86,6 +88,7 @@ class Output: public IndexBase
     bool operator==(const Output &other) const { return value_ == other.value_; }
     bool operator!=(const Output &other) const { return value_ != other.value_; }
     bool operator>=(const Output &other) const { return value_ >= other.value_; }
+    bool operator<(const Output &other) const { return value_ < other.value_; }
 };
 
 class Selector: public IndexBase
@@ -113,9 +116,11 @@ class PathElement
     std::string name_;
     std::vector<const PathElement *> sources_;
     std::vector<const PathElement *> targets_;
+    const PathElement *parent_element_;
 
     explicit PathElement(std::string &&name):
-        name_(std::move(name))
+        name_(std::move(name)),
+        parent_element_(nullptr)
     {}
 
   public:
@@ -168,11 +173,23 @@ class PathElement
         other.sources_[other_input_index.get()] = this;
     }
 
-    virtual void finalize() const
+    void connect_to_parent(const Output &this_output_index,
+                           PathElement &other)
     {
-        if(sources_.empty() && targets_.empty())
+        if(&other == this)
+            Error() << "Path element cannot be its own parent (" << name_ << ")";
+
+        parent_element_ = &other;
+    }
+
+    const bool is_sub_element() const { return parent_element_ != nullptr; }
+
+    virtual void finalize(const std::string &device_id) const
+    {
+        if(sources_.empty() && targets_.empty() && parent_element_ == nullptr)
             msg_error(0, LOG_NOTICE,
-                      "Element %s is unconnected", name_.c_str());
+                      "Element %s.%s is unconnected",
+                      device_id.c_str(), name_.c_str());
     }
 };
 
@@ -194,6 +211,13 @@ class StaticElement: public PathElement
 
     virtual ~StaticElement() = default;
 };
+
+static std::string append_fqname(
+        const std::string &device_id, const std::string &element_id,
+        const std::string &control_id)
+{
+    return " (" + device_id + '.' + element_id + '.' + control_id + ')';
+}
 
 /*!
  * I/O mapping for all possible selector assignments.
@@ -220,23 +244,24 @@ class Mapping
 
     virtual ~Mapping() = default;
 
-    virtual void finalize(unsigned int num_of_inputs,
+    virtual void finalize(const std::string &device_id,
+                          const std::string &element_id,
+                          const std::string &control_id,
+                          unsigned int num_of_inputs,
                           unsigned int num_of_outputs) const = 0;
 
     virtual unsigned int number_of_choices() const = 0;
 
     virtual bool is_connected(const Selector &sel,
                               const Input &in, const Output &out) const = 0;
-
-    virtual bool for_each_mapped(
-            const Selector &sel,
-            const std::function<void(const Input &, const Output &)> &apply) const = 0;
 };
 
 template <typename T>
 static void throw_on_invalid_mux_demux_values(
         const std::vector<T> &values, unsigned int number_of_pads,
-        const char *elem_kind, const char *context)
+        const char *elem_kind, const char *context,
+        const std::string &device_id, const std::string &element_id,
+        const std::string &control_id)
 {
     if(number_of_pads > 0 &&
        std::any_of(values.begin(), values.end(),
@@ -246,10 +271,12 @@ static void throw_on_invalid_mux_demux_values(
             }))
         Error() << context << ": " << elem_kind
                 << " mapping contains values greater than "
-                << (number_of_pads - 1);
+                << (number_of_pads - 1)
+                << append_fqname(device_id, element_id, control_id);
 
     if(values.size() < 2)
-        Error() << context << ": empty mapping";
+        Error() << context << ": empty mapping"
+                << append_fqname(device_id, element_id, control_id);
 }
 
 /*!
@@ -271,15 +298,18 @@ class MappingMux: public Mapping
 
     virtual ~MappingMux() = default;
 
-    void finalize(unsigned int num_of_inputs,
+    void finalize(const std::string &device_id, const std::string &element_id,
+                  const std::string &control_id, unsigned int num_of_inputs,
                   unsigned int num_of_outputs) const final override
     {
         throw_on_invalid_mux_demux_values(input_by_selector_, num_of_inputs,
-                                          "input", "MappingMux");
+                                          "input", "MappingMux",
+                                          device_id, element_id, control_id);
 
         if(num_of_outputs != 1)
             Error() << "MappingMux: number of outputs must be 1, but have "
-                    << num_of_outputs;
+                    << num_of_outputs
+                    << append_fqname(device_id, element_id, control_id);
     }
 
     unsigned int number_of_choices() const final override
@@ -291,26 +321,11 @@ class MappingMux: public Mapping
                       const Input &in, const Output &out) const
         final override
     {
-        if(out != Output(0))
+        if(out != Output(0) || !in.is_valid())
             return false;
 
         const auto from = input_by_selector_.at(sel.get());
         return from == in;
-    }
-
-    bool for_each_mapped(
-            const Selector &sel,
-            const std::function<void(const Input &, const Output &)> &apply) const
-        final override
-    {
-        const auto from = input_by_selector_.at(sel.get());
-        if(from.is_valid())
-        {
-            apply(from, Output(0));
-            return true;
-        }
-        else
-            return false;
     }
 };
 
@@ -333,15 +348,18 @@ class MappingDemux: public Mapping
 
     virtual ~MappingDemux() = default;
 
-    void finalize(unsigned int num_of_inputs,
+    void finalize(const std::string &device_id, const std::string &element_id,
+                  const std::string &control_id, unsigned int num_of_inputs,
                   unsigned int num_of_outputs) const final override
     {
         throw_on_invalid_mux_demux_values(output_by_selector_, num_of_outputs,
-                                          "output", "MappingDemux");
+                                          "output", "MappingDemux",
+                                          device_id, element_id, control_id);
 
         if(num_of_inputs != 1)
             Error() << "MappingDemux: number of inputs must be 1, but have "
-                    << num_of_inputs;
+                    << num_of_inputs
+                    << append_fqname(device_id, element_id, control_id);
     }
 
     unsigned int number_of_choices() const final override
@@ -353,26 +371,84 @@ class MappingDemux: public Mapping
                       const Input &in, const Output &out) const
         final override
     {
-        if(in != Input(0))
+        if(in != Input(0) || !out.is_valid())
             return false;
 
         const auto to = output_by_selector_.at(sel.get());
         return out == to;
     }
+};
 
-    bool for_each_mapped(
-            const Selector &sel,
-            const std::function<void(const Input &, const Output &)> &apply) const
+/*!
+ * I/O mapping: free mapping based on LUT.
+ */
+class MappingTable: public Mapping
+{
+  public:
+    using Table = std::set<std::pair<Input, Output>>;
+
+  private:
+    std::vector<Table> tables_;
+
+  public:
+    explicit MappingTable(std::vector<Table> &&m):
+        tables_(std::move(m))
+    {}
+
+    virtual ~MappingTable() = default;
+
+    void finalize(const std::string &device_id, const std::string &element_id,
+                  const std::string &control_id, unsigned int num_of_inputs,
+                  unsigned int num_of_outputs) const final override
+    {
+        bool found_edges = false;
+
+        for(const auto &table : tables_)
+        {
+            for(const auto &edge : table)
+            {
+                if(edge.first >= Input(num_of_inputs))
+                    Error()
+                        << "MappingTable: table contains input values greater than "
+                        << (num_of_inputs - 1)
+                        << append_fqname(device_id, element_id, control_id);
+
+                if(edge.second >= Output(num_of_outputs))
+                    Error()
+                        << "MappingTable: table contains output values greater than "
+                        << (num_of_outputs - 1)
+                        << append_fqname(device_id, element_id, control_id);
+
+                found_edges = true;
+            }
+        }
+
+        if(!found_edges)
+            Error() << "MappingTable: empty mapping"
+                    << append_fqname(device_id, element_id, control_id);
+    }
+
+    unsigned int number_of_choices() const final override
+    {
+        return tables_.size();
+    }
+
+    bool is_connected(const Selector &sel,
+                      const Input &in, const Output &out) const
         final override
     {
-        const auto to = output_by_selector_.at(sel.get());
-        if(to.is_valid())
-        {
-            apply(Input(0), to);
-            return true;
-        }
-        else
+        if(!in.is_valid() || !out.is_valid())
             return false;
+
+        try
+        {
+            const auto &table(tables_.at(sel.get()));
+            return table.find({in, out}) != table.end();
+        }
+        catch(const std::out_of_range &e)
+        {
+            return false;
+        }
     }
 };
 
@@ -407,10 +483,11 @@ class SwitchingElement: public PathElement
 
     virtual ~SwitchingElement() = default;
 
-    void finalize() const final override
+    void finalize(const std::string &device_id) const final override
     {
-        PathElement::finalize();
-        mapping_->finalize(sources_.size(), targets_.size());
+        PathElement::finalize(device_id);
+        mapping_->finalize(device_id, name_, selector_,
+                           sources_.size(), targets_.size());
     }
 
     const std::string &get_selector_name() const { return selector_; }
@@ -439,6 +516,14 @@ class SwitchingElement: public PathElement
     {
         return SwitchingElement(std::move(element_name), std::move(selector_name),
                                 std::make_unique<MappingDemux>(std::move(m)));
+    }
+
+    static SwitchingElement mk_table(std::string &&element_name,
+                                     std::string &&selector_name,
+                                     std::vector<MappingTable::Table> &&m)
+    {
+        return SwitchingElement(std::move(element_name), std::move(selector_name),
+                                std::make_unique<MappingTable>(std::move(m)));
     }
 };
 
@@ -565,7 +650,7 @@ class ApplianceBuilder
         no_more_elements();
 
         for(auto &e : elements_by_name_)
-            e.second.finalize();
+            e.second.finalize(name_);
 
         return Appliance(std::move(name_),
                          std::move(static_elements_),

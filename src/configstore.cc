@@ -29,6 +29,7 @@
 #include "configstore_iter.hh"
 #include "configvalue.hh"
 #include "device_models.hh"
+#include "model_parsing_utils.hh"
 #include "messages.h"
 
 #include <list>
@@ -328,6 +329,8 @@ class Device
     const std::string device_id_;
 
   private:
+    const StaticModels::DeviceModel *const model_;
+
     std::unordered_map<std::string, Element> elements_;
 
     /*!
@@ -346,9 +349,11 @@ class Device
     Device &operator=(const Device &) = delete;
     Device &operator=(Device &&) = default;
 
-    explicit Device(std::string &&name, std::string &&device_id):
+    explicit Device(std::string &&name, std::string &&device_id,
+                    const StaticModels::DeviceModel *model):
         name_(std::move(name)),
-        device_id_(std::move(device_id))
+        device_id_(std::move(device_id)),
+        model_(model)
     {}
 
     const ConfigStore::Value &set_value(
@@ -409,7 +414,11 @@ class Device
 class ConfigStore::Settings::Impl
 {
   private:
+    /* models */
     const StaticModels::DeviceModelsDatabase &models_database_;
+    std::unordered_map<std::string, std::unique_ptr<StaticModels::DeviceModel>> models_;
+
+    /* instances */
     std::unordered_map<std::string, Device> devices_;
     std::unique_ptr<ChangeLog> log_;
 
@@ -472,6 +481,7 @@ class ConfigStore::Settings::Impl
     void remove_outgoing_connections(const std::string &from);
     void remove_ingoing_connections(const std::string &to);
     void remove_all_connections();
+    const StaticModels::DeviceModel *get_device_model(const std::string &name);
 };
 
 ConfigStore::ValueType
@@ -785,9 +795,10 @@ void ConfigStore::Settings::Impl::add_instance(std::string &&name,
 
     log_->add_device(std::string(name));
 
+    const auto *dm = get_device_model(std::string(device_id));
     std::string key(name);
     devices_.emplace(std::move(key),
-                     Device(std::move(name), std::move(device_id)));
+                     Device(std::move(name), std::move(device_id), dm));
 }
 
 bool ConfigStore::Settings::Impl::remove_instance(const std::string &name,
@@ -835,37 +846,11 @@ void ConfigStore::Settings::Impl::clear_instances()
     devices_.clear();
 }
 
-static bool is_qualified_name(const std::string &name,
-                              size_t *out_sep_pos = nullptr)
-{
-    const auto sep_pos = name.find('.');
-
-    if(sep_pos == std::string::npos || sep_pos == 0 ||
-       sep_pos == name.length() - 1)
-        return false;
-
-    if(out_sep_pos != nullptr)
-        *out_sep_pos = sep_pos;
-
-    return true;
-}
-
-static std::tuple<std::string, std::string>
-split_qualified_name(const std::string &name)
-{
-    size_t sep_pos;
-    if(!is_qualified_name(name, &sep_pos))
-        Error() << "element name \"" << name <<
-            "\" is not a fully qualified name";
-
-    return std::make_tuple(name.substr(0, sep_pos), name.substr(sep_pos + 1));
-}
-
 static std::tuple<Device &, std::string>
 get_device_and_element_name(const std::string &qualified_name,
                             std::unordered_map<std::string, Device> &devices)
 {
-    const auto qname(split_qualified_name(qualified_name));
+    const auto qname(StaticModels::Utils::split_qualified_name(qualified_name));
     const auto &device_name(std::get<0>(qname));
 
     try
@@ -884,7 +869,7 @@ static std::tuple<const Device &, std::string>
 get_device_and_element_name(const std::string &qualified_name,
                             const std::unordered_map<std::string, Device> &devices)
 {
-    const auto qname(split_qualified_name(qualified_name));
+    const auto qname(StaticModels::Utils::split_qualified_name(qualified_name));
     const auto &device_name(std::get<0>(qname));
     return std::make_tuple(std::ref(devices.at(device_name)), std::move(std::get<1>(qname)));
 }
@@ -961,15 +946,15 @@ void ConfigStore::Settings::Impl::add_connection(const std::string &from,
 void ConfigStore::Settings::Impl::remove_connections(const std::string &from,
                                                      const std::string &to)
 {
-    if(is_qualified_name(from))
+    if(StaticModels::Utils::is_qualified_name(from))
     {
         auto d(get_device_and_element_name(from, devices_));
         auto &dev(std::get<0>(d));
         const auto &element_id(std::get<1>(d));
 
-        if(is_qualified_name(to))
+        if(StaticModels::Utils::is_qualified_name(to))
         {
-            const auto &target(split_qualified_name(to));
+            const auto &target(StaticModels::Utils::split_qualified_name(to));
             dev.remove_connection_on_sink(element_id, std::get<0>(target),
                                           std::get<1>(target), *log_);
         }
@@ -980,9 +965,9 @@ void ConfigStore::Settings::Impl::remove_connections(const std::string &from,
     {
         auto &dev(devices_.at(from));
 
-        if(is_qualified_name(to))
+        if(StaticModels::Utils::is_qualified_name(to))
         {
-            const auto &target(split_qualified_name(to));
+            const auto &target(StaticModels::Utils::split_qualified_name(to));
             dev.remove_connections_with_target(std::get<0>(target),
                                                std::get<1>(target),
                                                *log_);
@@ -994,7 +979,7 @@ void ConfigStore::Settings::Impl::remove_connections(const std::string &from,
 
 void ConfigStore::Settings::Impl::remove_outgoing_connections(const std::string &from)
 {
-    if(is_qualified_name(from))
+    if(StaticModels::Utils::is_qualified_name(from))
     {
         auto d(get_device_and_element_name(from, devices_));
         auto &dev(std::get<0>(d));
@@ -1010,7 +995,7 @@ void ConfigStore::Settings::Impl::remove_outgoing_connections(const std::string 
 
 void ConfigStore::Settings::Impl::remove_ingoing_connections(const std::string &to)
 {
-    if(!is_qualified_name(to))
+    if(!StaticModels::Utils::is_qualified_name(to))
     {
         if(devices_.find(to) != devices_.end())
             for(auto &d : devices_)
@@ -1018,7 +1003,7 @@ void ConfigStore::Settings::Impl::remove_ingoing_connections(const std::string &
     }
     else
     {
-        const auto &target(split_qualified_name(to));
+        const auto &target(StaticModels::Utils::split_qualified_name(to));
         if(devices_.find(std::get<0>(target)) != devices_.end())
             for(auto &d : devices_)
                 d.second.remove_connections_with_target(std::get<0>(target),
@@ -1031,6 +1016,38 @@ void ConfigStore::Settings::Impl::remove_all_connections()
 {
     for(auto &dev : devices_)
         dev.second.remove_connections(*log_);
+}
+
+const StaticModels::DeviceModel *
+ConfigStore::Settings::Impl::get_device_model(const std::string &name)
+{
+    const auto dm(models_.find(name));
+    if(dm != models_.end())
+        return dm->second.get();
+
+    models_.emplace(name, nullptr);
+
+    const auto &model(models_database_.get_device_model_definition(name));
+    if(model.is_null())
+    {
+        msg_error(0, LOG_NOTICE,
+                  "No model defined for device ID \"%s\"", name.c_str());
+        return nullptr;
+    }
+
+    try
+    {
+        return
+            models_.emplace(name,
+                std::make_unique<StaticModels::DeviceModel>(
+                    StaticModels::DeviceModel::mk_model(std::string(name), model)))
+            .first->second.get();
+    }
+    catch(const std::exception &e)
+    {
+        msg_error(0, LOG_NOTICE, "%s", e.what());
+        return nullptr;
+    }
 }
 
 nlohmann::json ConfigStore::Settings::Impl::json() const
@@ -1078,12 +1095,13 @@ const nlohmann::json &ConfigStore::Settings::Impl::retrieve_control_definition_f
     static const nlohmann::json empty;
 
     const auto dev_and_qualified_ctrlname(get_device_and_element_name(qualified_control_name, devices_));
-    const auto &model(models_database_.get_device_model(std::get<0>(dev_and_qualified_ctrlname).device_id_));
+    const auto &model(models_database_.get_device_model_definition(std::get<0>(dev_and_qualified_ctrlname).device_id_));
 
     if(model.is_null())
         return empty;
 
-    const auto &elemname_and_ctrlname(split_qualified_name(std::get<1>(dev_and_qualified_ctrlname)));
+    const auto &elemname_and_ctrlname(StaticModels::Utils::split_qualified_name(
+                    std::get<1>(dev_and_qualified_ctrlname)));
     const auto &elemname(std::get<0>(elemname_and_ctrlname));
     const auto &ctrlname(std::get<1>(elemname_and_ctrlname));
 

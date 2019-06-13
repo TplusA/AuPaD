@@ -229,6 +229,102 @@ TEST_CASE_FIXTURE(Fixture, "Device with one demux element")
 }
 
 /*
+ *              +-------------------------------+
+ *              | switch                        |
+ *              +-------------------------------+
+ *              | in | [sel]              | out |
+ * source A --->| 0  | 0: 0 -> 0          |   0 |---> sink A
+ * source B --->| 1  | 1: 1 -> 1          |   1 |---> sink B
+ *              |    | 2: 0 -> 0, 1 -> 1  |   2 |---> sink C
+ *              |    | 3: 0 -> 1, 1 -> 0  |   3 |---> sink D
+ *              |    | 4: 0 -> 1, 1 -> 2  |     |
+ *              |    | 5: 1 -> 2          |     |
+ *              |    | 6: 0 -> 0, 0 -> 1, |     |
+ *              |    |    1 -> 2, 1 -> 3  |     |
+ *              |    | 7: -               |     |
+ *              +-------------------------------+
+ *
+ */
+TEST_CASE_FIXTURE(Fixture, "Device with one table element")
+{
+    using StaticModels::SignalPaths::Input;
+    using StaticModels::SignalPaths::Output;
+    using StaticModels::SignalPaths::Selector;
+
+    StaticModels::SignalPaths::ApplianceBuilder builder("MyDevice");
+
+    builder.add_element(StaticModels::SignalPaths::StaticElement("audio_source_a"));
+    builder.add_element(StaticModels::SignalPaths::StaticElement("audio_source_b"));
+    builder.add_element(StaticModels::SignalPaths::StaticElement("sink_a"));
+    builder.add_element(StaticModels::SignalPaths::StaticElement("sink_b"));
+    builder.add_element(StaticModels::SignalPaths::StaticElement("sink_c"));
+    builder.add_element(StaticModels::SignalPaths::StaticElement("sink_d"));
+    builder.add_element(StaticModels::SignalPaths::SwitchingElement::mk_table(
+            "switch", "sel",
+            {
+                /* sel 0 */
+                {
+                    { Input(0), Output(0) },
+                },
+                /* sel 1 */
+                {
+                    { Input(1), Output(1) },
+                },
+                /* sel 2 */
+                {
+                    { Input(0), Output(0) },
+                    { Input(1), Output(1) },
+                },
+                /* sel 3 */
+                {
+                    { Input(0), Output(1) },
+                    { Input(1), Output(0) },
+                },
+                /* sel 4 */
+                {
+                    { Input(0), Output(1) },
+                    { Input(1), Output(2) },
+                },
+                /* sel 5 */
+                {
+                    { Input(1), Output(2) },
+                },
+                /* sel 6 */
+                {
+                    { Input(0), Output(0) },
+                    { Input(0), Output(1) },
+                    { Input(1), Output(2) },
+                    { Input(1), Output(3) },
+                },
+                /* sel 7 */
+                {},
+            }));
+    builder.no_more_elements();
+
+    auto &sel(builder.lookup_element("switch"));
+
+    builder.lookup_element("audio_source_a").connect(Output(0), sel, Input(0));
+    builder.lookup_element("audio_source_b").connect(Output(0), sel, Input(1));
+    sel.connect(Output(0), builder.lookup_element("sink_a"), Input(0));
+    sel.connect(Output(1), builder.lookup_element("sink_b"), Input(0));
+    sel.connect(Output(2), builder.lookup_element("sink_c"), Input(0));
+    sel.connect(Output(3), builder.lookup_element("sink_d"), Input(0));
+
+    const auto dev(builder.build());
+
+    ModelCompliant::SignalPathTracker tracker(dev, true);
+
+    CHECK(tracker.select("switch", Selector(0)));
+    std::vector<const StaticModels::SignalPaths::PathElement *> expected
+    {
+        dev.lookup_element("audio_source_a"),
+        dev.lookup_element("switch"),
+        dev.lookup_element("sink_a"),
+    };
+    expect_audio_path(tracker, expected);
+}
+
+/*
  *          +------------------+
  *          | input A/B        |
  *          +------------------+
@@ -347,6 +443,62 @@ TEST_CASE_FIXTURE(Fixture, "Device with two mux and one demux elements")
         dev.lookup_element("input_sel"),
         dev.lookup_element("output"),
         dev.lookup_element("sink_B"),
+    };
+    expect_audio_path(tracker, expected);
+}
+
+/*
+ * +--------------+      +------------------+
+ * | source       |--.   | output enable    |
+ * +--------------+  |   +------------------+
+ * | sub-source A |  |   | in | [sel] | out |
+ * | sub-source B |  `-->| 0  |   1   |   0 |---> sink
+ * | sub-source C |      |    |   0   |   - |---> *
+ * +--------------+      +------------------+
+ */
+TEST_CASE_FIXTURE(Fixture, "Device with source comprising of three sub-sources")
+{
+    using StaticModels::SignalPaths::Input;
+    using StaticModels::SignalPaths::Output;
+    using StaticModels::SignalPaths::Selector;
+
+    StaticModels::SignalPaths::ApplianceBuilder builder("MyDevice");
+
+    builder.add_element(StaticModels::SignalPaths::StaticElement("source"));
+    builder.add_element(StaticModels::SignalPaths::StaticElement("sub_A"));
+    builder.add_element(StaticModels::SignalPaths::StaticElement("sub_B"));
+    builder.add_element(StaticModels::SignalPaths::StaticElement("sub_C"));
+    builder.add_element(StaticModels::SignalPaths::StaticElement("sink"));
+    builder.add_element(StaticModels::SignalPaths::SwitchingElement::mk_demux(
+            "output", "sel", { Output::mk_unconnected(), Output(0) }));
+    builder.no_more_elements();
+
+    auto &source(builder.lookup_element("source"));
+    auto &output(builder.lookup_element("output"));
+
+    builder.lookup_element("sub_A").connect_to_parent(Output(0), source);
+    builder.lookup_element("sub_B").connect_to_parent(Output(0), source);
+    builder.lookup_element("sub_C").connect_to_parent(Output(0), source);
+    source.connect(Output(0), output, Input(0));
+    output.connect(Output(0), builder.lookup_element("sink"), Input(0));
+
+    const auto dev(builder.build());
+
+    ModelCompliant::SignalPathTracker tracker(dev, true);
+
+    CHECK(tracker.enumerate_active_signal_paths(
+            [] (const auto &p) { FAIL("unexpected"); return false; }));
+
+    CHECK(tracker.select("output", Selector(0)));
+    CHECK(tracker.enumerate_active_signal_paths(
+            [] (const auto &p) { FAIL("unexpected"); return false; }));
+
+    CHECK(tracker.select("output", Selector(1)));
+    std::vector<const StaticModels::SignalPaths::PathElement *> expected
+    {
+        dev.lookup_element("source"),
+        dev.lookup_element("output"),
+        dev.lookup_element("sink"),
     };
     expect_audio_path(tracker, expected);
 }
