@@ -34,7 +34,7 @@ bool ModelCompliant::SignalPathTracker::select(
     if(elem == nullptr)
     {
         APPLIANCE_BUG("Cannot select nonexistent switching element %s in %s",
-                      dev_.get_name().c_str(), element_name.c_str());
+                      element_name.c_str(), dev_.get_name().c_str());
         return false;
     }
 
@@ -110,12 +110,13 @@ class DepthFirst
         depth_(depth)
     {}
 
-    bool traverse(const std::vector<std::pair<const StaticModels::SignalPaths::PathElement *, bool>> &sources)
+    bool traverse(const std::vector<std::pair<const StaticModels::SignalPaths::PathElement *, bool>> &sources,
+                  bool is_root_device)
     {
         for(const auto &source : sources)
         {
             /* only traverse from active sources */
-            if(!source.second)
+            if(!is_root_device && !source.second)
                 continue;
 
             /* FIXME: sub-elements need to be handled properly */
@@ -147,76 +148,81 @@ class DepthFirst
     bool down(const StaticModels::SignalPaths::PathElement &elem,
               const StaticModels::SignalPaths::Output &elem_target_index)
     {
-        const auto *target = elem.get_targets()[elem_target_index.get()];
-        if(target == nullptr)
-            return true;
-
-        const auto target_input_index(target->find_parent_index(elem));
-        if(!target_input_index.is_valid())
-        {
-            BUG("Failed to find input index in %s from parent %s",
-                target->get_name().c_str(), elem.get_name().c_str());
-            return false;
-        }
+        using IterAction = StaticModels::SignalPaths::PathElement::IterAction;
 
         ++depth_;
 
-        const auto &target_targets(target->get_targets());
-
-        if(target_targets.empty())
-        {
-            /* found a sink */
-            switch(apply_(&elem, *target, target_input_index,
-                          StaticModels::SignalPaths::Output::mk_unconnected(),
-                          depth_))
+        const auto process_edges_result =
+            elem.for_each_outgoing_edge(elem_target_index,
+            [this, &elem, &elem_target_index]
+            (const auto &outedge)
             {
-              case TraverseAction::CONTINUE:
-              case TraverseAction::SKIP:
-                break;
+                const auto &target(outedge.get_target_element());
+                const auto target_input_index = outedge.get_target_input_pad();
 
-              case TraverseAction::ABORT:
-                --depth_;
-                return false;
-            }
-        }
-        else
-        {
-            StaticModels::SignalPaths::Output target_output_index(0);
-
-            for(const auto &t : target_targets)
-            {
-                if(t == nullptr)
+                if(target.is_sink())
                 {
-                    ++target_output_index;
-                    continue;
-                }
-
-                switch(apply_(&elem, *target, target_input_index,
-                            target_output_index, depth_))
-                {
-                  case TraverseAction::CONTINUE:
-                    if(!down(*target, target_output_index))
+                    /* found a sink */
+                    switch(apply_(&elem, target, target_input_index,
+                                  StaticModels::SignalPaths::Output::mk_unconnected(),
+                                  depth_))
                     {
-                        --depth_;
-                        return false;
+                      case TraverseAction::CONTINUE:
+                        return IterAction::CONTINUE;
+
+                      case TraverseAction::SKIP:
+                        return IterAction::DONE;
+
+                      case TraverseAction::ABORT:
+                        break;
                     }
 
-                    break;
-
-                  case TraverseAction::SKIP:
-                    break;
-
-                  case TraverseAction::ABORT:
-                    --depth_;
-                    return false;
+                    return IterAction::ABORT;
                 }
 
-                ++target_output_index;
-            }
-        }
+                const auto result = target.for_each_output(
+                    [this, &elem, &target, &target_input_index]
+                    (const auto target_output_index)
+                    {
+                        switch(apply_(&elem, target, target_input_index,
+                                      target_output_index, depth_))
+                        {
+                          case TraverseAction::CONTINUE:
+                            if(!down(target, target_output_index))
+                                return IterAction::ABORT;
+
+                            break;
+
+                          case TraverseAction::SKIP:
+                            break;
+
+                          case TraverseAction::ABORT:
+                            return IterAction::ABORT;
+                        }
+
+                        return IterAction::CONTINUE;
+                    });
+
+                return result == IterAction::DONE ? IterAction::CONTINUE : result;
+            });
 
         --depth_;
-        return true;
+
+        switch(process_edges_result)
+        {
+          case IterAction::EMPTY:
+          case IterAction::DONE:
+            return true;
+
+          case IterAction::ABORT:
+            break;
+
+          case IterAction::CONTINUE:
+            BUG("Unexpected edge processing result");
+            break;
+        }
+
+        return false;
     }
 };
 
@@ -251,7 +257,7 @@ collect(const StaticModels::SignalPaths::PathElement *parent,
 }
 
 bool ModelCompliant::SignalPathTracker::enumerate_active_signal_paths(
-        const EnumerateCallbackFn &fn) const
+        const EnumerateCallbackFn &fn, bool is_root_device) const
 {
     std::vector<std::pair<const StaticModels::SignalPaths::PathElement *, bool>> path;
 
@@ -276,5 +282,5 @@ bool ModelCompliant::SignalPathTracker::enumerate_active_signal_paths(
             }
 
             return collect_result;
-        }).traverse(sources_);
+        }).traverse(sources_, is_root_device);
 }

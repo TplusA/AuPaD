@@ -140,8 +140,22 @@ class Internal: public Element
 
     unsigned int get_number_of_inputs() const final override { return number_of_inputs_; }
     unsigned int get_number_of_outputs() const final override { return number_of_outputs_; }
+
     const Control &get_control(const std::string &id) const { return *controls_.at(id); }
-    bool contains_control(const std::string &id) const { return controls_.find(id) != controls_.end(); }
+
+    const Control *get_control_ptr(const std::string &id) const
+    {
+        const auto it(controls_.find(id));
+        return it != controls_.end() ? it->second.get() : nullptr;
+    }
+
+    bool contains_control(const std::string &id) const { return get_control_ptr(id) != nullptr; }
+
+    void for_each_control(const std::function<void(const Control &ctrl)> &apply) const
+    {
+        for(const auto &ctrl : controls_)
+            apply(*ctrl.second);
+    }
 };
 
 }

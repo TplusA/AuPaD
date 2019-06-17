@@ -27,18 +27,36 @@
 #include "json.hh"
 #pragma GCC diagnostic pop
 
+#include <limits>
+
 namespace StaticModels
 {
 
 namespace Utils
 {
 
-template <typename T>
+template <typename T> struct GetTraits
+{
+    static T get(const nlohmann::json::const_iterator &it) { return it->get<T>(); }
+};
+
+template <> struct GetTraits<uint16_t>
+{
+    static uint16_t get(const nlohmann::json::const_iterator &it)
+    {
+        const auto temp = it->get<unsigned int>();
+        return temp <= std::numeric_limits<uint16_t>::max()
+            ? uint16_t(temp)
+            : std::numeric_limits<uint16_t>::max();
+    }
+};
+
+template <typename T, typename Traits = GetTraits<T>>
 static T get(const nlohmann::json &j, const char *key, T &&fallback)
 {
     const auto it(j.find(key));
     if(it != j.end())
-        return it->get<T>();
+        return Traits::get(it);
     else
         return fallback;
 }

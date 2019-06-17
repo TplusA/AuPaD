@@ -23,6 +23,7 @@
 #define CLIENT_PLUGIN_HH
 
 #include <string>
+#include <vector>
 
 namespace ConfigStore
 {
@@ -59,7 +60,7 @@ class Plugin
     virtual void report_changes(const ConfigStore::Settings &settings,
                                 const ConfigStore::Changes &changes) const = 0;
     virtual bool full_report(const ConfigStore::Settings &settings,
-                             std::string &report) const = 0;
+                             std::string &report, std::vector<std::string> &extra) const = 0;
 
     bool has_clients() const { return reference_count_ > 0; }
     void add_client() { ++reference_count_; }

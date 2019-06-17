@@ -556,10 +556,10 @@
             ],
             "audio_sinks": [
                 { "id": "digital_out" },
-                { "id": "speaker_out" },
+                { "id": "speaker_out", "roon": { "rank": 0 } },
                 { "id": "subwoofer_out" },
                 { "id": "analog_line_out" },
-                { "id": "headphone_out" }
+                { "id": "headphone_out", "roon": { "rank": 1 } }
             ],
             "elements": [
                 {
@@ -588,6 +588,7 @@
                                 "min": 0, "max": 85, "step": 1, "scale": "steps",
                                 "neutral_setting": 85,
                                 "roon": {
+                                    "rank": 0,
                                     "template": {
                                         "type": "digital_volume",
                                         "quality": "high"
@@ -604,6 +605,7 @@
                                 "min": -85, "max": 85, "step": 1, "scale": "steps",
                                 "neutral_setting": 0,
                                 "roon": {
+                                    "rank": 1,
                                     "template": {
                                         "type": "balance",
                                         "quality": "lossless"
@@ -620,6 +622,7 @@
                             "loudness_enable": {
                                 "type": "on_off",
                                 "roon": {
+                                    "rank": 2,
                                     "template": {
                                         "type": "t+a",
                                         "quality": "enhanced",
@@ -635,6 +638,7 @@
                                 "min": -12, "max": 12, "step": 1, "scale": "steps",
                                 "neutral_setting": 0,
                                 "roon": {
+                                    "rank": 5,
                                     "template": {
                                         "type": "eq",
                                         "quality": "enhanced",
@@ -654,6 +658,7 @@
                                 "min": -6, "max": 6, "step": 0.5, "scale": "steps",
                                 "neutral_setting": 0,
                                 "roon": {
+                                    "rank": 4,
                                     "template": {
                                         "type": "eq",
                                         "quality": "enhanced",
@@ -673,6 +678,7 @@
                                 "min": -12, "max": 12, "step": 1, "scale": "steps",
                                 "neutral_setting": 0,
                                 "roon": {
+                                    "rank": 3,
                                     "template": {
                                         "type": "eq",
                                         "quality": "enhanced",
@@ -697,6 +703,7 @@
                                 "min": -5, "max": 4, "step": 1, "scale": "steps",
                                 "neutral_setting": 0,
                                 "roon": {
+                                    "rank": 6,
                                     "template": {
                                         "type": "t+a",
                                         "quality": "enhanced",
@@ -715,6 +722,7 @@
                                 "min": -3, "max": 2, "step": 1, "scale": "steps",
                                 "neutral_setting": 0,
                                 "roon": {
+                                    "rank": 7,
                                     "template": {
                                         "type": "t+a",
                                         "quality": "enhanced",
@@ -731,6 +739,7 @@
                                 "type": "on_off",
                                 "neutral_setting": "off",
                                 "roon": {
+                                    "rank": 8,
                                     "template": {
                                         "type": "t+a",
                                         "quality": "enhanced",
@@ -830,9 +839,8 @@
                         "analog_or_digital.out0": "adc",
                         "adc":               "dsp",
                         "analog_or_digital.out1": [ "dsp", "digital_out" ],
-                        "dsp.out0":          [ "analog_line_out", "headphone_out" ],
-                        "dsp.out1":          "subwoofer_out",
-                        "dsp.out2":          "amp",
+                        "dsp":               ["analog_line_out", "headphone_out",
+                                              "subwoofer_out", "amp"],
                         "amp":               "speaker_out"
                     }
                 },

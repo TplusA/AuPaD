@@ -22,10 +22,14 @@
 #ifndef CONFIGSTORE_ITER_HH
 #define CONFIGSTORE_ITER_HH
 
+#include "signal_path_tracker.hh"
+
 #include <functional>
 #include <string>
 
 class Device;
+
+namespace StaticModels { class DeviceModel; }
 
 namespace ConfigStore
 {
@@ -56,7 +60,13 @@ class DeviceContext
         device_(device)
     {}
 
+    const StaticModels::DeviceModel *get_model() const;
     void for_each_setting(const SettingReportFn &apply) const;
+    void for_each_setting(const std::string &element,
+                          const SettingReportFn &apply) const;
+    bool for_each_signal_path(
+            bool is_root_device,
+            const ModelCompliant::SignalPathTracker::EnumerateCallbackFn &apply) const;
 };
 
 /*!

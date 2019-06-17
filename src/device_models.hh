@@ -77,6 +77,33 @@ class DeviceModel
     DeviceModel &operator=(DeviceModel &&) = default;
 
     static DeviceModel mk_model(std::string &&name, const nlohmann::json &definition);
+
+    void for_each_element(const std::function<void(const Elements::Element &)> &apply) const
+    {
+        for(const auto &elem : elements_)
+            apply(*elem.second);
+    }
+
+    const Elements::AudioSink *get_audio_sink(const std::string &sink_name) const
+    {
+        const auto &it(elements_.find(sink_name));
+        return it != elements_.end()
+            ? dynamic_cast<const Elements::AudioSink *>(it->second.get())
+            : nullptr;
+    }
+
+    bool has_selector(const std::string &element_id, const std::string &control_id) const;
+    SignalPaths::Selector to_selector_index(const std::string &element_id,
+                                            const std::string &control_id,
+                                            const ConfigStore::Value &value) const;
+    const StaticModels::Elements::Control *
+    get_selector_control_ptr(const std::string &element_id,
+                             const std::string &control_id) const;
+    const StaticModels::Elements::Control *
+    get_control_by_name(const std::string &element_id,
+                        const std::string &control_id) const;
+
+    const SignalPaths::Appliance &get_signal_path_graph() const { return signal_path_; }
 };
 
 }

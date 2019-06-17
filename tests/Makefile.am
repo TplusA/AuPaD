@@ -49,7 +49,8 @@ test_configstore_SOURCES = \
     mock_expectation.hh
 test_configstore_LDADD = \
     libtestrunner.la \
-    $(top_builddir)/src/libconfigstore.la
+    $(top_builddir)/src/libconfigstore.la \
+    $(top_builddir)/src/libsigpath.la
 test_configstore_CPPFLAGS = $(AM_CPPFLAGS)
 test_configstore_CXXFLAGS = $(AM_CXXFLAGS)
 
@@ -61,7 +62,8 @@ test_configstore_roon_SOURCES = \
 test_configstore_roon_LDADD = \
     libtestrunner.la \
     $(top_builddir)/src/libconfigstore.la \
-    $(top_builddir)/src/libconfigstore_roon.la
+    $(top_builddir)/src/libconfigstore_roon.la \
+    $(top_builddir)/src/libsigpath.la
 test_configstore_roon_CPPFLAGS = $(AM_CPPFLAGS)
 test_configstore_roon_CXXFLAGS = $(AM_CXXFLAGS)
 

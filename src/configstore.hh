@@ -37,7 +37,8 @@ class SettingsIterator;
  * All settings as reported by the appliance.
  *
  * The settings stored in this object are not matched against the device
- * models. Instead, they represent raw, live data as reported by the appliance
+ * models (though the models are built when referenced and owned by this
+ * object). Instead, they represent raw, live data as reported by the appliance
  * as AuPaL objects.
  *
  * \see

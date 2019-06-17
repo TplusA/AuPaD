@@ -62,11 +62,20 @@ class Control
     Control &operator=(const Control &) = delete;
     Control &operator=(Control &&) = default;
     virtual ~Control() = default;
+
+    virtual ConfigStore::ValueType get_value_type() const = 0;
+    virtual bool is_neutral_value(const ConfigStore::Value &value) const = 0;
     virtual unsigned int get_number_of_choices() const = 0;
 
     using ForEachChoiceFn =
         std::function<void(unsigned int idx, const std::string &choice)>;
     virtual void for_each_choice(const ForEachChoiceFn &apply) const = 0;
+    virtual unsigned int to_selector_index(const ConfigStore::Value &value) const = 0;
+
+    const nlohmann::json &get_original_definition() const
+    {
+        return original_definition_;
+    }
 };
 
 /*!
@@ -81,6 +90,7 @@ class Choice: public Control
   private:
     const std::vector<std::string> choices_;
     const std::string neutral_setting_;
+    const std::unordered_map<std::string, bool> choice_to_index_;
 
   public:
     Choice(const Choice &) = delete;
@@ -96,7 +106,8 @@ class Choice: public Control
         Control(original_definition, std::move(id), std::move(label),
                 std::move(description)),
         choices_(std::move(choices)),
-        neutral_setting_(std::move(neutral_setting))
+        neutral_setting_(std::move(neutral_setting)),
+        choice_to_index_(std::move(Choice::hash_choices(choices_)))
     {
         if(choices_.size() < 2)
             Error() << "Not enough choices for control \"" << id_ << "\"";
@@ -112,6 +123,19 @@ class Choice: public Control
                     << id_ << "\"";
     }
 
+    ConfigStore::ValueType get_value_type() const final override
+    {
+        return ConfigStore::ValueType::VT_ASCIIZ;
+    }
+
+    bool is_neutral_value(const ConfigStore::Value &value) const final override
+    {
+        return
+            !neutral_setting_.empty() &&
+            value.is_of_type(ConfigStore::ValueType::VT_ASCIIZ) &&
+            value.get_value().get<std::string>() == neutral_setting_;
+    }
+
     unsigned int get_number_of_choices() const final override
     {
         return choices_.size();
@@ -122,6 +146,28 @@ class Choice: public Control
         unsigned int i = 0;
         for(const auto &c : choices_)
             apply(i++, c);
+    }
+
+    unsigned int to_selector_index(const ConfigStore::Value &value) const
+        final override
+    {
+        if(!value.is_of_type(ConfigStore::ValueType::VT_ASCIIZ))
+            Error() << "Selector values for choices must be a string";
+
+        const auto &s(value.get_value().get<std::string>());
+        return choice_to_index_.at(s);
+    }
+
+  private:
+    static std::unordered_map<std::string, bool>
+    hash_choices(const std::vector<std::string> &choices)
+    {
+        std::unordered_map<std::string, bool> result;
+
+        for(unsigned int i = 0; i < choices.size(); ++i)
+            result[choices[i]] = i;
+
+        return result;
     }
 };
 
@@ -181,6 +227,18 @@ class Range: public Control
         }
     }
 
+    ConfigStore::ValueType get_value_type() const final override
+    {
+        return min_.get_type();
+    }
+
+    bool is_neutral_value(const ConfigStore::Value &value) const final override
+    {
+        return
+            !neutral_setting_.is_of_type(ConfigStore::ValueType::VT_VOID) &&
+            value == neutral_setting_;
+    }
+
     unsigned int get_number_of_choices() const final override
     {
         Error() << "Ranges cannot be used as selector";
@@ -190,6 +248,15 @@ class Range: public Control
     {
         Error() << "Cannot enumerate range selectors";
     }
+
+    unsigned int to_selector_index(const ConfigStore::Value &value) const
+        final override
+    {
+        return std::numeric_limits<unsigned int>::max();
+    }
+
+    const ConfigStore::Value &get_min() const { return min_; }
+    const ConfigStore::Value &get_max() const { return max_; }
 };
 
 /*!
@@ -219,6 +286,18 @@ class OnOff: public Control
                        "\"on\" or \"off\" in control \"" << id_ << "\"";
     }
 
+    ConfigStore::ValueType get_value_type() const final override
+    {
+        return ConfigStore::ValueType::VT_BOOL;
+    }
+
+    bool is_neutral_value(const ConfigStore::Value &value) const final override
+    {
+        return
+            value.is_of_type(ConfigStore::ValueType::VT_BOOL) &&
+            value.get_value().get<bool>() == neutral_setting_;
+    }
+
     unsigned int get_number_of_choices() const final override
     {
         return 2;
@@ -229,6 +308,30 @@ class OnOff: public Control
         apply(0, "off");
         apply(1, "on");
     }
+
+    unsigned int to_selector_index(const ConfigStore::Value &value) const
+        final override
+    {
+
+        if(value.is_of_type(ConfigStore::ValueType::VT_BOOL))
+            return value.get_value().get<bool>() ? 1 : 0;
+
+        if(value.is_of_type(ConfigStore::ValueType::VT_ASCIIZ))
+        {
+            const auto &s(value.get_value().get<std::string>());
+            if(s == "off")
+                return 0;
+            else if(s == "on")
+                return 1;
+            else
+                Error() << "String-type selector value for on_off must be "
+                           "either \"on\" or \"off\"";
+        }
+
+        Error() << "Selector values for on_off must be boolean or string";
+    }
+
+    bool get_neutral_value() const { return neutral_setting_; }
 };
 
 }

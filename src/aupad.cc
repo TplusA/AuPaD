@@ -281,6 +281,16 @@ static void listen_to_dcpd_audio_path_updates(TDBus::Bus &bus,
         });
 }
 
+static std::vector<const char *>
+strings_to_cstrings(const std::vector<std::string> &vs)
+{
+    std::vector<const char *> c_array(vs.size() + 1);
+    std::transform(vs.begin(), vs.end(), c_array.begin(),
+                   [] (const std::string &s) { return s.c_str(); });
+    c_array.back() = nullptr;
+    return c_array;
+}
+
 static gboolean get_full_roon_audio_path(
         tdbusJSONEmitter *const object,
         GDBusMethodInvocation *const invocation,
@@ -289,28 +299,25 @@ static gboolean get_full_roon_audio_path(
             const ClientPlugin::Roon &, const ConfigStore::Settings &
         > *const d)
 {
-    static const char *const empty_extra[] = {nullptr};
-
     std::string report;
-    if(std::get<0>(d->user_data).full_report(std::get<1>(d->user_data), report))
-        d->done(invocation, report.c_str(), empty_extra);
+    std::vector<std::string> extra;
+    if(std::get<0>(d->user_data).full_report(std::get<1>(d->user_data), report, extra))
+        d->done(invocation, report.c_str(), strings_to_cstrings(extra).data());
     else
+    {
+        static const char *const empty_extra[] = {nullptr};
         d->done(invocation, "[]", empty_extra);
+    }
 
     return TRUE;
 }
 
 static void send_audio_signal_path_to_roon(const std::string &asp,
-                                           bool is_full_signal_path,
+                                           const std::vector<std::string> &extra,
                                            TDBus::Iface<tdbusJSONEmitter> &iface)
 {
-    const char *const extra[] =
-    {
-        is_full_signal_path ? "signal_path" : "update",
-        nullptr
-    };
-
-    iface.emit(tdbus_jsonemitter_emit_object, asp.c_str(), extra);
+    iface.emit(tdbus_jsonemitter_emit_object, asp.c_str(),
+               strings_to_cstrings(extra).data());
 }
 
 static std::unique_ptr<ClientPlugin::Roon>
@@ -326,10 +333,9 @@ create_roon_plugin(TDBus::Bus &bus, ClientPlugin::MonitorManager &mm,
     auto *work_around_gcc_bug = &emitter_iface;
     auto roon(std::make_unique<ClientPlugin::Roon>(
             [work_around_gcc_bug]
-            (const auto &asp, bool is_full_signal_path)
+            (const auto &asp, const auto &extra)
             {
-                send_audio_signal_path_to_roon(asp, is_full_signal_path,
-                                               *work_around_gcc_bug);
+                send_audio_signal_path_to_roon(asp, extra, *work_around_gcc_bug);
             }));
     emitter_iface.connect_method_handler<TDBus::JSONEmitterGet>(
         get_full_roon_audio_path,

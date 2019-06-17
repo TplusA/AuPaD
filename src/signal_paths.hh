@@ -28,6 +28,8 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <map>
+#include <forward_list>
 #include <set>
 #include <functional>
 #include <algorithm>
@@ -104,18 +106,63 @@ class Selector: public IndexBase
     bool operator>=(const Selector &other) const { return value_ >= other.value_; }
 };
 
+class PathElement;
+
+/*!
+ * Representation of a signal path connection from an element to another
+ * element.
+ */
+class OutgoingEdge
+{
+  private:
+    Output from_pad_;
+    Input to_pad_;
+    const PathElement &to_elem_;
+
+  public:
+    OutgoingEdge(const OutgoingEdge &) = delete;
+    OutgoingEdge(OutgoingEdge &&) = default;
+    OutgoingEdge &operator=(const OutgoingEdge &) = delete;
+    OutgoingEdge &operator=(OutgoingEdge &&) = default;
+
+    explicit OutgoingEdge(Output from_pad,
+                          Input to_pad, const PathElement &to_elem):
+        from_pad_(from_pad),
+        to_pad_(to_pad),
+        to_elem_(to_elem)
+    {
+        log_assert(from_pad_.is_valid());
+        log_assert(to_pad_.is_valid());
+    }
+
+    Output get_output_pad() const { return from_pad_; }
+    Input get_target_input_pad() const { return to_pad_; }
+    const PathElement &get_target_element() const { return to_elem_; }
+};
+
 /*!
  * Base class for any element on the signal path defined in the model.
  */
 class PathElement
 {
+  public:
+    enum class IterAction
+    {
+        EMPTY,
+        DONE,
+        ABORT,
+        CONTINUE,
+    };
+
   private:
     static constexpr auto UNREASONABLE = 50;
 
   protected:
     std::string name_;
-    std::vector<const PathElement *> sources_;
-    std::vector<const PathElement *> targets_;
+    std::set<const PathElement *> sources_;
+    std::forward_list<OutgoingEdge> all_outgoing_edges_;
+    std::map<Output,
+             std::unordered_map<std::string, const OutgoingEdge *>> edges_by_output_;
     const PathElement *parent_element_;
 
     explicit PathElement(std::string &&name):
@@ -131,18 +178,44 @@ class PathElement
     virtual ~PathElement() = default;
 
     const std::string get_name() const { return name_; }
-    const auto &get_targets() const { return targets_; }
 
-    Input find_parent_index(const PathElement &parent) const
+    IterAction for_each_output(
+            const std::function<IterAction(const Output)> &apply) const
     {
-        const auto it(std::find(sources_.begin(), sources_.end(), &parent));
-        return it != sources_.end()
-            ? Input(std::distance(sources_.begin(), it))
-            : Input::mk_unconnected();
+        if(edges_by_output_.empty())
+            return IterAction::EMPTY;
+
+        for(const auto &it : edges_by_output_)
+        {
+            const auto temp(apply(it.first));
+            if(temp != IterAction::CONTINUE)
+                return temp;
+        }
+
+        return IterAction::DONE;
+    }
+
+    IterAction for_each_outgoing_edge(
+            Output output,
+            const std::function<IterAction(const OutgoingEdge &)> &apply) const
+    {
+        const auto &it(edges_by_output_.find(output));
+
+        if(it == edges_by_output_.end())
+            return IterAction::EMPTY;
+
+        for(const auto &e : it->second)
+        {
+            const auto temp(apply(*e.second));
+            if(temp != IterAction::CONTINUE)
+                return temp;
+        }
+
+        return IterAction::DONE;
     }
 
     bool is_source() const { return sources_.empty(); }
-    bool is_sink() const { return targets_.empty(); }
+    bool is_sink() const { return all_outgoing_edges_.empty(); }
 
     void connect(const Output &this_output_index,
                  PathElement &other, const Input &other_input_index)
@@ -164,13 +237,20 @@ class PathElement
             return;
         }
 
-        if(this_output_index >= Output(targets_.size()))
-            targets_.resize(this_output_index.get() + 1, nullptr);
-        targets_[this_output_index.get()] = &other;
+        const auto edges(edges_by_output_.find(this_output_index));
+        if(edges != edges_by_output_.end() &&
+           edges->second.find(other.name_) != edges->second.end())
+        {
+            BUG("Duplicate edge from %s.%u to %s.%u",
+                name_.c_str(), this_output_index.get(),
+                other.name_.c_str(), other_input_index.get());
+            return;
+        }
 
-        if(other_input_index >= Input(other.sources_.size()))
-            other.sources_.resize(other_input_index.get() + 1, nullptr);
-        other.sources_[other_input_index.get()] = this;
+        all_outgoing_edges_.emplace_front(
+            OutgoingEdge(this_output_index, other_input_index, other));
+        edges_by_output_[this_output_index][other.name_] = &all_outgoing_edges_.front();
+        other.sources_.insert(this);
     }
 
     void connect_to_parent(const Output &this_output_index,
@@ -186,7 +266,7 @@ class PathElement
 
     virtual void finalize(const std::string &device_id) const
     {
-        if(sources_.empty() && targets_.empty() && parent_element_ == nullptr)
+        if(sources_.empty() && all_outgoing_edges_.empty() && parent_element_ == nullptr)
             msg_error(0, LOG_NOTICE,
                       "Element %s.%s is unconnected",
                       device_id.c_str(), name_.c_str());
@@ -487,7 +567,7 @@ class SwitchingElement: public PathElement
     {
         PathElement::finalize(device_id);
         mapping_->finalize(device_id, name_, selector_,
-                           sources_.size(), targets_.size());
+                           sources_.size(), edges_by_output_.size());
     }
 
     const std::string &get_selector_name() const { return selector_; }

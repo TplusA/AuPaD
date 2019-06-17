@@ -119,6 +119,7 @@ class Value
     }
 
     const auto &get_value() const { return value_; }
+    const ValueType get_type() const { return type_; }
     const char get_type_code() const { return type_to_type_code(type_); }
 
     nlohmann::json get_as(ValueType vt) const

@@ -44,15 +44,11 @@ class SignalPathTracker
     SignalPathTracker &operator=(const SignalPathTracker &) = delete;
     SignalPathTracker &operator=(SignalPathTracker &&) = default;
 
-    explicit SignalPathTracker(const StaticModels::SignalPaths::Appliance &dev,
-                               bool is_root_device):
+    explicit SignalPathTracker(const StaticModels::SignalPaths::Appliance &dev):
         dev_(dev)
     {
         dev_.for_each_source(
-            [this, is_root_device] (const auto &src)
-            {
-                sources_.push_back({&src, is_root_device});
-            });
+            [this] (const auto &src) { sources_.push_back({&src, false}); });
     }
 
     bool select(const std::string &element_name,
@@ -75,7 +71,8 @@ class SignalPathTracker
         std::vector<std::pair<const StaticModels::SignalPaths::PathElement *, bool>>;
     using EnumerateCallbackFn = std::function<bool(const ActivePath &)>;
 
-    bool enumerate_active_signal_paths(const EnumerateCallbackFn &fn) const;
+    bool enumerate_active_signal_paths(const EnumerateCallbackFn &fn,
+                                       bool is_root_device) const;
 };
 
 }

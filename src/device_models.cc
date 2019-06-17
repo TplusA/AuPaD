@@ -750,3 +750,81 @@ StaticModels::DeviceModel::mk_model(std::string &&name,
                        std::move(defined_elements),
                        SignalPaths::Appliance(std::move(b.build())));
 }
+
+static const StaticModels::Elements::Control *
+get_selector_control(
+        const StaticModels::SignalPaths::Appliance &signal_path,
+        const std::unordered_map<std::string,
+                                 std::unique_ptr<StaticModels::Elements::Element>> &es,
+        const std::string &element_id, const std::string &control_id)
+{
+    const auto *sw_elem = signal_path.lookup_switching_element(element_id);
+    if(sw_elem == nullptr)
+        return nullptr;
+
+    if(sw_elem->get_selector_name() != control_id)
+        return nullptr;
+
+    const auto found_elem(es.find(element_id));
+    if(found_elem == es.end())
+        return nullptr;
+
+    const auto *elem =
+        dynamic_cast<const StaticModels::Elements::Internal *>(found_elem->second.get());
+    if(elem == nullptr)
+        return nullptr;
+
+    return elem->get_control_ptr(control_id);
+}
+
+bool StaticModels::DeviceModel::has_selector(const std::string &element_id,
+                                             const std::string &control_id) const
+{
+    return get_selector_control(signal_path_, elements_,
+                                element_id, control_id) != nullptr;
+}
+
+const StaticModels::Elements::Control *
+StaticModels::DeviceModel::get_selector_control_ptr(const std::string &element_id,
+                                                    const std::string &control_id) const
+{
+    return get_selector_control(signal_path_, elements_,
+                                element_id, control_id);
+}
+
+const StaticModels::Elements::Control *
+StaticModels::DeviceModel::get_control_by_name(const std::string &element_id,
+                                               const std::string &control_id) const
+{
+    const auto found_elem(elements_.find(element_id));
+    if(found_elem == elements_.end())
+        return nullptr;
+
+    const auto *elem =
+        dynamic_cast<const StaticModels::Elements::Internal *>(found_elem->second.get());
+    if(elem == nullptr)
+        return nullptr;
+
+    return elem->get_control_ptr(control_id);
+}
+
+StaticModels::SignalPaths::Selector
+StaticModels::DeviceModel::to_selector_index(const std::string &element_id,
+                                             const std::string &control_id,
+                                             const ConfigStore::Value &value) const
+{
+    const auto *ctrl = get_selector_control_ptr(element_id, control_id);
+    if(ctrl == nullptr)
+        return SignalPaths::Selector::mk_invalid();
+
+    try
+    {
+        return SignalPaths::Selector(ctrl->to_selector_index(value));
+    }
+    catch(const std::exception &e)
+    {
+        msg_error(0, LOG_NOTICE, "%s.%s: %s",
+                  element_id.c_str(), control_id.c_str(), e.what());
+        return SignalPaths::Selector::mk_invalid();
+    }
+}
