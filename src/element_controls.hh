@@ -90,7 +90,7 @@ class Choice: public Control
   private:
     const std::vector<std::string> choices_;
     const std::string neutral_setting_;
-    const std::unordered_map<std::string, bool> choice_to_index_;
+    const std::unordered_map<std::string, unsigned int> choice_to_index_;
 
   public:
     Choice(const Choice &) = delete;
@@ -159,10 +159,10 @@ class Choice: public Control
     }
 
   private:
-    static std::unordered_map<std::string, bool>
+    static std::unordered_map<std::string, unsigned int>
     hash_choices(const std::vector<std::string> &choices)
     {
-        std::unordered_map<std::string, bool> result;
+        std::unordered_map<std::string, unsigned int> result;
 
         for(unsigned int i = 0; i < choices.size(); ++i)
             result[choices[i]] = i;
