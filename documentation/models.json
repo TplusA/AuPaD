@@ -18,8 +18,8 @@
                 { "id": "usb_front",    "parent": "strbo_i2s" }
             ],
             "audio_sinks": [
-                { "id": "analog_line_out" },
-                { "id": "digital_out" }
+                { "id": "analog_line_out", "roon": { "rank": 1 } },
+                { "id": "digital_out", "roon": { "rank": 0 } }
             ],
             "elements": [
                 {
@@ -253,7 +253,7 @@
                 { "id": "recorder_in" }
             ],
             "audio_sinks": [
-                { "id": "speaker_out" },
+                { "id": "speaker_out", "roon": { "rank": 0 } },
                 { "id": "pre_out" },
                 { "id": "record_out" }
             ],
