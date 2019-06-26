@@ -330,58 +330,6 @@ get_io_mappings_from_model(const nlohmann::json &model,
     }
 }
 
-static StaticModels::SignalPaths::SwitchingElement
-make_mux_element(const StaticModels::Elements::Internal &element,
-                 const StaticModels::Elements::Control &selector,
-                 const nlohmann::json *mapping_table)
-{
-    const auto choices = selector.get_number_of_choices();
-    std::vector<StaticModels::SignalPaths::Input> m;
-    m.reserve(choices);
-    for(auto i = 0U; i < choices; ++i)
-        m.push_back(StaticModels::SignalPaths::Input(i));
-
-    if(mapping_table != nullptr)
-        BUG("TODO: Mapping table present for mux %s, but not supported yet",
-            element.id_.c_str());
-
-    if(m.size() != selector.get_number_of_choices())
-        Error() << "I/O mapping size " << m.size()
-                << " does not match number of choices "
-                << selector.get_number_of_choices() << " for selector "
-                << selector.id_;
-
-    return
-        StaticModels::SignalPaths::SwitchingElement::mk_mux(
-            std::string(element.id_), std::string(selector.id_), std::move(m));
-}
-
-static StaticModels::SignalPaths::SwitchingElement
-make_demux_element(const StaticModels::Elements::Internal &element,
-                   const StaticModels::Elements::Control &selector,
-                   const nlohmann::json *mapping_table)
-{
-    const auto choices = selector.get_number_of_choices();
-    std::vector<StaticModels::SignalPaths::Output> m;
-    m.reserve(choices);
-    for(auto i = 0U; i < choices; ++i)
-        m.push_back(StaticModels::SignalPaths::Output(i));
-
-    if(mapping_table != nullptr)
-        BUG("TODO: Mapping table present for demux %s, but not supported yet",
-            element.id_.c_str());
-
-    if(m.size() != selector.get_number_of_choices())
-        Error() << "I/O mapping size " << m.size()
-                << " does not match number of choices "
-                << selector.get_number_of_choices() << " for selector "
-                << selector.id_;
-
-    return
-        StaticModels::SignalPaths::SwitchingElement::mk_demux(
-            std::string(element.id_), std::string(selector.id_), std::move(m));
-}
-
 static unsigned int parse_pad_index(const std::string &name, bool is_input,
                                     const std::string &elem)
 {
@@ -412,6 +360,183 @@ static unsigned int parse_pad_index(
                            std::get<0>(elem_and_pad));
 }
 
+static void process_mapping_table_for_selector(
+        const std::string &selector_value, const std::string &element_id,
+        nlohmann::json::const_iterator &&it,
+        const nlohmann::json::const_iterator &it_end,
+        const std::function<void(StaticModels::SignalPaths::Input,
+                                 StaticModels::SignalPaths::Output)> &apply)
+{
+    while(it != it_end)
+    {
+        if(!it->is_string())
+            Error()
+                << "Input name is not a string for selector choice \""
+                << selector_value << "\" in I/O mapping for element \""
+                << element_id << "\"";
+
+        const StaticModels::SignalPaths::Input input(
+                parse_pad_index(*it, true, element_id));
+
+        if(++it == it_end)
+            Error()
+                << "Premature end of array for selector choice \""
+                << selector_value << "\" in I/O mapping for element \""
+                << element_id << "\"";
+
+        if(it->is_null())
+        {
+            ++it;
+            apply(input, StaticModels::SignalPaths::Output::mk_unconnected());
+        }
+        else if(it->is_string())
+        {
+            const StaticModels::SignalPaths::Output output(
+                    parse_pad_index(*it, false, element_id));
+            ++it;
+            apply(input, output);
+        }
+        else
+            Error()
+                << "Input name is not a string for selector choice \""
+                << selector_value << "\" in I/O mapping for element \""
+                << element_id << "\"";
+    }
+}
+
+static void add_exceptions_to_mux_mapping(
+        std::vector<StaticModels::SignalPaths::Input> &m,
+        const nlohmann::json &mapping_table,
+        const StaticModels::Elements::Internal &element,
+        const StaticModels::Elements::Control &selector)
+{
+    for(const auto &mapping : mapping_table.items())
+    {
+        const auto idx =
+            selector.to_selector_index(ConfigStore::Value(
+                ConfigStore::ValueType::VT_ASCIIZ, mapping.key()));
+
+        if(m.size() <= idx)
+            m.resize(idx + 1, StaticModels::SignalPaths::Input::mk_unconnected());
+
+        if(mapping.value().is_null())
+            m[idx] = StaticModels::SignalPaths::Input::mk_unconnected();
+        else if(mapping.value().is_array())
+        {
+            auto it(mapping.value().begin());
+            const auto it_end(mapping.value().end());
+            auto mapped_from_input(StaticModels::SignalPaths::Input::mk_unconnected());
+
+            process_mapping_table_for_selector(
+                mapping.key(), element.id_,
+                mapping.value().begin(), mapping.value().end(),
+                [&mapped_from_input, &element, &m]
+                (const auto input, const auto output)
+                {
+                    if(input.get() >= m.size())
+                        Error()
+                            << "I/O mapping for element \"" << element.id_
+                            << "\": input in" << input.get()
+                            << " out of range (must not exceed in"
+                            << (element.get_number_of_inputs() - 1) << ")";
+
+                    if(!output.is_valid())
+                        return;
+
+                    if(output.get() == 0)
+                    {
+                        if(mapped_from_input.is_valid() && mapped_from_input != input)
+                            Error()
+                                << "I/O mapping for element \"" << element.id_
+                                << "\":  a mux cannot map multiple inputs to "
+                                   "its single output";
+
+                        mapped_from_input = input;
+                    }
+                    else
+                        Error()
+                            << "I/O mapping for element \"" << element.id_
+                            << "\": output out" << output.get()
+                            << " out of range (must be either null or out0)";
+                });
+
+            m[idx] = mapped_from_input;
+        }
+        else
+            Error()
+                << "I/O mapping for element \"" << element.id_
+                << "\" maps neither to null nor to table";
+    }
+}
+
+static void add_exceptions_to_demux_mapping(
+        std::vector<StaticModels::SignalPaths::Output> &m,
+        const nlohmann::json &mapping_table,
+        const StaticModels::Elements::Internal &element,
+        const StaticModels::Elements::Control &selector)
+{
+    BUG("TODO: Mapping table present for demux %s, but not supported yet",
+        element.id_.c_str());
+}
+
+static StaticModels::SignalPaths::SwitchingElement
+make_mux_element(const StaticModels::Elements::Internal &element,
+                 const StaticModels::Elements::Control &selector,
+                 const nlohmann::json *mapping_table)
+{
+    const auto choices = selector.get_number_of_choices();
+    std::vector<StaticModels::SignalPaths::Input> m;
+    m.reserve(choices);
+    for(auto i = 0U; i < choices; ++i)
+        m.push_back(StaticModels::SignalPaths::Input(i));
+
+    if(mapping_table != nullptr)
+    {
+        /* exception table, but must be mux-compatible (at most one input can
+         * be mapped to the output) */
+        add_exceptions_to_mux_mapping(m, *mapping_table, element, selector);
+    }
+
+    if(m.size() != selector.get_number_of_choices())
+        Error() << "I/O mapping size " << m.size()
+                << " does not match number of choices "
+                << selector.get_number_of_choices() << " for selector "
+                << selector.id_;
+
+    return
+        StaticModels::SignalPaths::SwitchingElement::mk_mux(
+            std::string(element.id_), std::string(selector.id_), std::move(m));
+}
+
+static StaticModels::SignalPaths::SwitchingElement
+make_demux_element(const StaticModels::Elements::Internal &element,
+                   const StaticModels::Elements::Control &selector,
+                   const nlohmann::json *mapping_table)
+{
+    const auto choices = selector.get_number_of_choices();
+    std::vector<StaticModels::SignalPaths::Output> m;
+    m.reserve(choices);
+    for(auto i = 0U; i < choices; ++i)
+        m.push_back(StaticModels::SignalPaths::Output(i));
+
+    if(mapping_table != nullptr)
+    {
+        /* exception table, but must be demux-compatible (the input can be
+         * mapped to at most one output) */
+        add_exceptions_to_demux_mapping(m, *mapping_table, element, selector);
+    }
+
+    if(m.size() != selector.get_number_of_choices())
+        Error() << "I/O mapping size " << m.size()
+                << " does not match number of choices "
+                << selector.get_number_of_choices() << " for selector "
+                << selector.id_;
+
+    return
+        StaticModels::SignalPaths::SwitchingElement::mk_demux(
+            std::string(element.id_), std::string(selector.id_), std::move(m));
+}
+
 static void
 extend_mapping(std::vector<StaticModels::SignalPaths::MappingTable::Table> &m,
                std::vector<bool> &seen_selector,
@@ -419,7 +544,6 @@ extend_mapping(std::vector<StaticModels::SignalPaths::MappingTable::Table> &m,
                const nlohmann::json &mapping_table,
                unsigned int selector_index, const std::string &selector_value)
 {
-
     if(seen_selector[selector_index])
         Error()
             << "Duplicate entry for selector choice \"" << selector_value
@@ -432,40 +556,14 @@ extend_mapping(std::vector<StaticModels::SignalPaths::MappingTable::Table> &m,
         const auto &values(mapping_table.at(selector_value));
         StaticModels::SignalPaths::MappingTable::Table &table(m[selector_index]);
 
-        auto it(values.begin());
-
-        while(it != values.end())
-        {
-            if(!it->is_string())
-                Error()
-                    << "Input name is not a string for selector choice \""
-                    << selector_value << "\" in I/O mapping for element \""
-                    << element.id_ << "\"";
-
-            const StaticModels::SignalPaths::Input
-                input(parse_pad_index(*it, true, element.id_));
-
-            if(++it == values.end())
-                Error()
-                    << "Premature end of array for selector choice \""
-                    << selector_value << "\" in I/O mapping for element \""
-                    << element.id_ << "\"";
-
-            if(it->is_null())
-                ++it;
-            else if(it->is_string())
+        process_mapping_table_for_selector(
+            selector_value, element.id_, values.begin(), values.end(),
+            [&table]
+            (const auto input, const auto output)
             {
-                const StaticModels::SignalPaths::Output
-                    output(parse_pad_index(*it, false, element.id_));
-                ++it;
-                table.emplace(input, output);
-            }
-            else
-                Error()
-                    << "Input name is not a string for selector choice \""
-                    << selector_value << "\" in I/O mapping for element \""
-                    << element.id_ << "\"";
-        }
+                if(output.is_valid())
+                    table.emplace(input, output);
+            });
     }
     catch(const std::out_of_range &e)
     {
@@ -662,36 +760,6 @@ static void add_explicit_connections(StaticModels::SignalPaths::ApplianceBuilder
                         << from_element << "\" for device \""
                         << device_name << "\"";
             }
-
-            /*
-            const auto &sel(it->at("select").get<std::string>());
-            auto spec(StaticModels::Utils::split_mapping_spec(sel));
-
-            const auto &elem(defined_elements.find(std::get<0>(spec)));
-
-            if(elem == defined_elements.end())
-                Error()
-                    << "Use of undefined element \"" << std::get<0>(spec)
-                    << "\" in I/O mapping of device \"" << device_name << "\"";
-
-            const auto *ielem =
-                dynamic_cast<const StaticModels::Elements::Internal *>(elem->second.get());
-
-            if(ielem == nullptr)
-                Error()
-                    << "Use of non-switchable element \"" << std::get<0>(spec)
-                    << "\" in I/O mapping of device \"" << device_name << "\"";
-
-            if(!ielem->contains_control(std::get<1>(spec)))
-                Error()
-                    << "Use of undefined control \"" << std::get<0>(spec)
-                    << "." << std::get<1>(spec)
-                    << "\" in I/O mapping of device \"" << device_name << "\"";
-
-            mappings.emplace(std::move(std::get<0>(spec)),
-                             std::make_pair(std::cref(*it),
-                                            std::move(std::get<1>(spec))));
-            */
         }
     }
     catch(const std::exception &e)

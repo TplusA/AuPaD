@@ -150,20 +150,7 @@
                     "io_mapping": {
                         "select": "input_select@sel",
                         "mapping": "mux",
-                        "mapping_table": {
-                            "disabled": [
-                                "in0", null,
-                                "in1", null,
-                                "in2", null,
-                                "in3", null,
-                                "in4", null,
-                                "in5", null,
-                                "in6", null,
-                                "in7", null,
-                                "in8", null,
-                                "in9", null
-                            ]
-                        }
+                        "mapping_table": { "disabled": null }
                     }
                 },
                 {

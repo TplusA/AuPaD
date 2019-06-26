@@ -90,6 +90,13 @@ class Value
         validate();
     }
 
+    explicit Value(const ValueType &vtype, nlohmann::json &&value):
+        type_(vtype),
+        value_(std::move(value))
+    {
+        validate();
+    }
+
     bool is_of_type(ValueType vt) const { return type_ == vt; }
     bool equals_type_of(const Value &other) const { return type_ == other.type_; }
 
