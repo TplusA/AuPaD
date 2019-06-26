@@ -1425,6 +1425,47 @@ TEST_CASE_FIXTURE(Fixture, "NOP reports are filtered out")
     }
 }
 
+TEST_CASE_FIXTURE(Fixture, "Reintroduction of instances is reported")
+{
+    const std::string input = R"(
+        {
+            "audio_path_changes": [
+                { "op": "clear_instances" },
+                { "op": "add_instance", "name": "self", "id": "MP3100HV" }
+            ]
+        })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    settings.update(input);
+
+    const auto expected_json = R"({ "devices": { "self": "MP3100HV" } })"_json;
+    expect_equal(expected_json);
+
+    {
+    ConfigStore::Changes changes;
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    /* ...and again */
+    settings.update(input);
+    expect_equal(expected_json);
+
+    ConfigStore::Changes changes;
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+
+    std::vector<std::string> reported_devices;
+    changes.for_each_changed_device(
+        [&reported_devices] (const auto &name, bool was_added)
+        {
+            CHECK(was_added);
+            reported_devices.push_back(name);
+        });
+    REQUIRE(reported_devices.size() == 1);
+    CHECK(reported_devices[0] == "self");
+}
+
 TEST_CASE_FIXTURE(Fixture, "Clearing settings also clears the log")
 {
     bunch_of_connected_instances();

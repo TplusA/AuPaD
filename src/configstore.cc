@@ -130,9 +130,10 @@ class ConfigStore::ChangeLog
 
     void optimize()
     {
-        optimize_changes(device_changes_);
-        optimize_changes(connection_changes_);
-        optimize_changes(value_changes_);
+        optimize_changes(device_changes_,
+                         [] (const auto &d) { return !d.second.first; });
+        optimize_changes(connection_changes_, [] (const auto &) { return true; });
+        optimize_changes(value_changes_, [] (const auto &) { return true; });
     }
 
     bool has_changes() const
@@ -210,11 +211,13 @@ class ConfigStore::ChangeLog
 
   private:
     template <typename T>
-    static void optimize_changes(T &changes)
+    static void optimize_changes(
+            T &changes,
+            const std::function<bool(const typename T::value_type &)> &allow)
     {
         for(auto it = changes.begin(); it != changes.end(); /* nothing */)
         {
-            if(it->second.first == it->second.second)
+            if(allow(*it) && it->second.first == it->second.second)
                 it = changes.erase(it);
             else
                 ++it;
