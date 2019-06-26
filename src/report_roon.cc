@@ -613,7 +613,7 @@ void ClientPlugin::Roon::report_changes(const ConfigStore::Settings &settings,
     }
     catch(const std::out_of_range &e)
     {
-        BUG("Failed iterating device \"self\"");
+        BUG("Failed iterating device \"self\": %s", e.what());
     }
 
     if(!report.empty())
