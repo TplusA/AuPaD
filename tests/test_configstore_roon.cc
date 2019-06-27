@@ -27,7 +27,7 @@
 
 #include "report_roon.hh"
 
-#include "configstore_plugin_manager.hh"
+#include "client_plugin_manager.hh"
 #include "configstore.hh"
 #include "configstore_json.hh"
 #include "configstore_changes.hh"
@@ -43,7 +43,6 @@ class RoonUpdate
     nlohmann::json expected_update_;
     nlohmann::json sent_update_;
     bool expecting_update_;
-    bool expecting_full_path_;
     bool update_was_sent_;
 
   public:
@@ -54,32 +53,30 @@ class RoonUpdate
 
     explicit RoonUpdate():
         expecting_update_(false),
-        expecting_full_path_(false),
         update_was_sent_(false)
     {}
 
-    void expect(const char *expected, bool is_full_signal_path)
+    void expect(const char *expected)
     {
-        expect(nlohmann::json::parse(expected), is_full_signal_path);
+        expect(nlohmann::json::parse(expected));
     }
 
-    void expect(nlohmann::json &&expected, bool is_full_signal_path)
+    void expect(nlohmann::json &&expected)
     {
         expected_update_ = std::move(expected);
         expecting_update_ = true;
-        expecting_full_path_ = is_full_signal_path;
 
         REQUIRE_FALSE(update_was_sent_);
         sent_update_ = nullptr;
         update_was_sent_ = false;
     }
 
-    void send(const std::string &asp, bool is_full_signal_path)
+    void send(const std::string &asp, const std::vector<std::string> &extra)
     {
         CHECK(expecting_update_);
-        CHECK(is_full_signal_path == expecting_full_path_);
         CHECK_FALSE(update_was_sent_);
         CHECK_FALSE(asp.empty());
+        CHECK(extra.empty());
 
         if(update_was_sent_)
         {
@@ -89,10 +86,6 @@ class RoonUpdate
 
         sent_update_ = nlohmann::json::parse(asp);
         update_was_sent_ = true;
-
-        // FIXME: Temporary workaround for random signal path ordering
-        std::sort(expected_update_.begin(), expected_update_.end());
-        std::sort(sent_update_.begin(), sent_update_.end());
 
         const auto d(nlohmann::json::diff(sent_update_, expected_update_));
         if(d.empty())
@@ -115,26 +108,29 @@ class RoonUpdate
 class Fixture
 {
   protected:
-    ConfigStore::PluginManager pm;
-    StaticModels::DeviceModels models;
+    ClientPlugin::PluginManager pm;
+    StaticModels::DeviceModelsDatabase models;
     ConfigStore::Settings settings;
     std::unique_ptr<MockMessages::Mock> mock_messages;
 
+    ClientPlugin::Roon *roon_plugin;
     RoonUpdate roon_update;
 
   public:
     explicit Fixture():
         settings(models),
-        mock_messages(std::make_unique<MockMessages::Mock>())
+        mock_messages(std::make_unique<MockMessages::Mock>()),
+        roon_plugin(nullptr)
     {
         MockMessages::singleton = mock_messages.get();
 
         expect<MockMessages::MsgInfo>(mock_messages,
                                       "Registered plugin \"Roon\"", false);
 
-        auto roon(std::make_unique<ConfigStore::RoonOutput>(
-            [this] (const auto &asp, bool full) { roon_update.send(asp, full); }));
+        auto roon(std::make_unique<ClientPlugin::Roon>(
+            [this] (const auto &asp, const auto &extra) { roon_update.send(asp, extra); }));
         roon->add_client();
+        roon_plugin = roon.get();
         pm.register_plugin(std::move(roon));
 
         if(!models.load("test_models.json", true))
@@ -159,6 +155,18 @@ class Fixture
 
         MockMessages::singleton = nullptr;
     }
+
+  protected:
+    void expect_equal(const nlohmann::json &expected, const nlohmann::json &have)
+    {
+        const auto d(nlohmann::json::diff(have, expected));
+
+        if(d.empty())
+            return;
+
+        MESSAGE("Diff: " << d);
+        CHECK(have == expected);
+    }
 };
 
 TEST_CASE_FIXTURE(Fixture, "Passing empty changes has no side effects")
@@ -169,7 +177,7 @@ TEST_CASE_FIXTURE(Fixture, "Passing empty changes has no side effects")
     pm.report_changes(settings, changes);
 }
 
-TEST_CASE_FIXTURE(Fixture, "Settings for CALA CDR")
+TEST_CASE_FIXTURE(Fixture, "Settings update for CALA CDR")
 {
     const std::string input = R"(
         {
@@ -208,6 +216,10 @@ TEST_CASE_FIXTURE(Fixture, "Settings for CALA CDR")
                     "kv": { "sel": { "type": "s", "value": "strbo" } }
                 },
                 {
+                    "op": "set", "element": "self.analog_or_digital",
+                    "kv": { "is_digital": { "type": "b", "value": true } }
+                },
+                {
                     "op": "set", "element": "self.amp",
                     "kv": { "enable": { "type": "b", "value": true } }
                 }
@@ -222,16 +234,16 @@ TEST_CASE_FIXTURE(Fixture, "Settings for CALA CDR")
     const auto expected_update = R"(
         [
             { "type": "digital_volume",                         "quality": "high",     "gain": 60.0 },
-            { "type": "t+a", "sub_type": "virtual_surround"   , "quality": "enhanced" },
             { "type": "balance",                                "quality": "lossless", "value": 0.11764705882352944 },
-            { "type": "t+a", "sub_type": "contour_fundamental", "quality": "enhanced", "gain": -1.0 },
             { "type": "eq",  "sub_type": "bass",                "quality": "enhanced", "gain": 1.0 },
+            { "type": "eq",  "sub_type": "mid",                 "quality": "enhanced", "gain": 0.5 },
             { "type": "t+a", "sub_type": "contour_presence",    "quality": "enhanced", "gain": 2.0 },
-            { "type": "eq",  "sub_type": "mid",                 "quality": "enhanced", "gain": 0.5 }
+            { "type": "t+a", "sub_type": "contour_fundamental", "quality": "enhanced", "gain": -1.0 },
+            { "type": "t+a", "sub_type": "virtual_surround"   , "quality": "enhanced" }
         ]
     )";
 
-    roon_update.expect(expected_update, false);
+    roon_update.expect(expected_update);
     pm.report_changes(settings, changes);
 }
 

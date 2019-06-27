@@ -25,7 +25,7 @@
 #include <string>
 #include <memory>
 
-namespace StaticModels { class DeviceModels; }
+namespace StaticModels { class DeviceModelsDatabase; }
 
 namespace ConfigStore
 {
@@ -37,7 +37,8 @@ class SettingsIterator;
  * All settings as reported by the appliance.
  *
  * The settings stored in this object are not matched against the device
- * models. Instead, they represent raw, live data as reported by the appliance
+ * models (though the models are built when referenced and owned by this
+ * object). Instead, they represent raw, live data as reported by the appliance
  * as AuPaL objects.
  *
  * \see
@@ -59,7 +60,7 @@ class Settings
     Settings &operator=(const Settings &) = delete;
     Settings &operator=(Settings &&) = default;
 
-    explicit Settings(const StaticModels::DeviceModels &models);
+    explicit Settings(const StaticModels::DeviceModelsDatabase &models_database);
     ~Settings();
 
     void clear();

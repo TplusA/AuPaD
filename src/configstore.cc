@@ -29,6 +29,8 @@
 #include "configstore_iter.hh"
 #include "configvalue.hh"
 #include "device_models.hh"
+#include "signal_path_tracker.hh"
+#include "model_parsing_utils.hh"
 #include "messages.h"
 
 #include <list>
@@ -98,11 +100,15 @@ class ConfigStore::ChangeLog
     /*
      * Mapping of qualified audio sink to audio source connection to the
      * original and current state (presence) of the connection.
+     *
+     * Note that the changes in this container only represent inter-device
+     * changes, not the device-internal audio path changes possibly triggered
+     * by internal value changes.
      */
     std::unordered_map<std::pair<std::string, std::string>, std::pair<const bool, bool>> connection_changes_;
 
     /*
-     * Mapping of qualified element name to ist original and current values.
+     * Mapping of qualified element name to its original and current values.
      * This mapping keeps track of addition of new names and their values,
      * removal of existing names, and value changes.
      */
@@ -124,9 +130,10 @@ class ConfigStore::ChangeLog
 
     void optimize()
     {
-        optimize_changes(device_changes_);
-        optimize_changes(connection_changes_);
-        optimize_changes(value_changes_);
+        optimize_changes(device_changes_,
+                         [] (const auto &d) { return !d.second.first; });
+        optimize_changes(connection_changes_, [] (const auto &) { return true; });
+        optimize_changes(value_changes_, [] (const auto &) { return true; });
     }
 
     bool has_changes() const
@@ -204,11 +211,13 @@ class ConfigStore::ChangeLog
 
   private:
     template <typename T>
-    static void optimize_changes(T &changes)
+    static void optimize_changes(
+            T &changes,
+            const std::function<bool(const typename T::value_type &)> &allow)
     {
         for(auto it = changes.begin(); it != changes.end(); /* nothing */)
         {
-            if(it->second.first == it->second.second)
+            if(allow(*it) && it->second.first == it->second.second)
                 it = changes.erase(it);
             else
                 ++it;
@@ -254,7 +263,7 @@ void ConfigStore::Changes::for_each_changed_value(
 /*!
  * Representation of an audio path element with values.
  */
-class Element
+class ReportedElement
 {
   public:
     const std::string name_;
@@ -263,12 +272,12 @@ class Element
     std::unordered_map<std::string, ConfigStore::Value> values_;
 
   public:
-    Element(const Element &) = delete;
-    Element(Element &&) = default;
-    Element &operator=(const Element &) = delete;
-    Element &operator=(Element &&) = default;
+    ReportedElement(const ReportedElement &) = delete;
+    ReportedElement(ReportedElement &&) = default;
+    ReportedElement &operator=(const ReportedElement &) = delete;
+    ReportedElement &operator=(ReportedElement &&) = default;
 
-    explicit Element(std::string &&name):
+    explicit ReportedElement(std::string &&name):
         name_(std::move(name))
     {}
 
@@ -328,7 +337,10 @@ class Device
     const std::string device_id_;
 
   private:
-    std::unordered_map<std::string, Element> elements_;
+    const StaticModels::DeviceModel *const model_;
+    std::unique_ptr<ModelCompliant::SignalPathTracker> current_signal_path_;
+
+    std::unordered_map<std::string, ReportedElement> elements_;
 
     /*!
      * Outgoing connections from this device.
@@ -346,9 +358,14 @@ class Device
     Device &operator=(const Device &) = delete;
     Device &operator=(Device &&) = default;
 
-    explicit Device(std::string &&name, std::string &&device_id):
+    explicit Device(std::string &&name, std::string &&device_id,
+                    const StaticModels::DeviceModel *model):
         name_(std::move(name)),
-        device_id_(std::move(device_id))
+        device_id_(std::move(device_id)),
+        model_(model),
+        current_signal_path_(model_ != nullptr
+                ? std::make_unique<ModelCompliant::SignalPathTracker>(model_->get_signal_path_graph())
+                : nullptr)
     {}
 
     const ConfigStore::Value &set_value(
@@ -357,9 +374,21 @@ class Device
                 const std::string &type_code, const nlohmann::json &value,
                 ConfigStore::Value &old_value)
     {
-        return get_element(element_id)
-            .set_value(element_parameter_name, old_value,
-                       ConfigStore::Value(type_code, nlohmann::json(value)));
+        const auto &new_value(get_element(element_id)
+                              .set_value(element_parameter_name, old_value,
+                                         ConfigStore::Value(type_code,
+                                                            nlohmann::json(value))));
+
+        if(current_signal_path_ != nullptr)
+        {
+            const auto sel(model_->to_selector_index(element_id,
+                                                     element_parameter_name,
+                                                     new_value));
+            if(sel.is_valid())
+                current_signal_path_->select(element_id, sel);
+        }
+
+        return new_value;
     }
 
     void unset_value(const std::string &element_id,
@@ -367,20 +396,34 @@ class Device
                      ConfigStore::Value &old_value)
     {
         get_element(element_id).unset_value(element_parameter_name, old_value);
+
+        if(current_signal_path_ != nullptr &&
+           model_->has_selector(element_id, element_parameter_name))
+            current_signal_path_->floating(element_id);
     }
 
     void unset_values(const std::string &element_id,
                       std::unordered_map<std::string, ConfigStore::Value> &old_values)
     {
         get_element(element_id).unset_values(old_values);
+
+        if(current_signal_path_ != nullptr)
+            for(const auto &v : old_values)
+                if(model_->has_selector(element_id, v.first))
+                {
+                    current_signal_path_->floating(element_id);
+                    return;
+                }
     }
 
     void add_connection(const std::string &sink_name,
                         const std::string &target_dev,
                         const std::string &target_conn);
 
+    const auto *get_model() const { return model_; }
     const auto &get_elements() const { return elements_; }
     const auto &get_outgoing_connections() const { return outgoing_connections_; }
+    const auto *get_signal_paths() const { return current_signal_path_.get(); }
 
     void remove_connections(ConfigStore::ChangeLog &log);
     void remove_connections_with_target(const std::string &target_device,
@@ -400,7 +443,7 @@ class Device
 
   private:
     /* get or insert element by name */
-    Element &get_element(const std::string &element_id);
+    ReportedElement &get_element(const std::string &element_id);
 };
 
 /*!
@@ -409,7 +452,12 @@ class Device
 class ConfigStore::Settings::Impl
 {
   private:
-    const StaticModels::DeviceModels &models_;
+    /* models */
+    const StaticModels::DeviceModelsDatabase &models_database_;
+    std::unordered_map<std::string, std::unique_ptr<StaticModels::DeviceModel>> models_;
+    const StaticModels::DeviceModel *root_appliance_model_;
+
+    /* instances */
     std::unordered_map<std::string, Device> devices_;
     std::unique_ptr<ChangeLog> log_;
 
@@ -419,8 +467,9 @@ class ConfigStore::Settings::Impl
     Impl &operator=(const Impl &) = delete;
     Impl &operator=(Impl &&) = default;
 
-    explicit Impl(const StaticModels::DeviceModels &models):
-        models_(models)
+    explicit Impl(const StaticModels::DeviceModelsDatabase &models_database):
+        models_database_(models_database),
+        root_appliance_model_(nullptr)
     {}
 
     /*
@@ -429,14 +478,11 @@ class ConfigStore::Settings::Impl
      */
     static std::unique_ptr<Impl> make_fresh(std::unique_ptr<Impl> old)
     {
-        return std::make_unique<Impl>(old->models_);
+        return std::make_unique<Impl>(old->models_database_);
     }
 
     void update(const nlohmann::json &j);
     nlohmann::json json() const;
-
-    const nlohmann::json &
-    retrieve_control_definition_from_model(const std::string &qualified_control_name) const;
 
     bool extract_changes(Changes &changes)
     {
@@ -472,6 +518,7 @@ class ConfigStore::Settings::Impl
     void remove_outgoing_connections(const std::string &from);
     void remove_ingoing_connections(const std::string &to);
     void remove_all_connections();
+    const StaticModels::DeviceModel *get_device_model(const std::string &name);
 };
 
 ConfigStore::ValueType
@@ -704,7 +751,7 @@ void Device::remove_connection_on_sink(const std::string &audio_sink_name,
         });
 }
 
-Element &Device::get_element(const std::string &element_id)
+ReportedElement &Device::get_element(const std::string &element_id)
 {
     try
     {
@@ -715,14 +762,14 @@ Element &Device::get_element(const std::string &element_id)
         /* handled below */
     }
 
-    if(elements_.emplace(element_id, Element(std::string(element_id))).second)
+    if(elements_.emplace(element_id, ReportedElement(std::string(element_id))).second)
         return elements_.at(element_id);
 
     Error() << "internal error while inserting element " <<
         element_id << " into device " << name_;
 
     /* never reached, suppress compiler warning */
-    return *static_cast<Element *>(nullptr);
+    return *static_cast<ReportedElement *>(nullptr);
 }
 
 void ConfigStore::Settings::Impl::update(const nlohmann::json &j)
@@ -785,9 +832,14 @@ void ConfigStore::Settings::Impl::add_instance(std::string &&name,
 
     log_->add_device(std::string(name));
 
+    const auto *dm = get_device_model(std::string(device_id));
+
+    if(name == "self")
+        root_appliance_model_ = dm;
+
     std::string key(name);
     devices_.emplace(std::move(key),
-                     Device(std::move(name), std::move(device_id)));
+                     Device(std::move(name), std::move(device_id), dm));
 }
 
 bool ConfigStore::Settings::Impl::remove_instance(const std::string &name,
@@ -824,6 +876,9 @@ bool ConfigStore::Settings::Impl::remove_instance(const std::string &name,
     devices_.erase(dev);
     log_->remove_device(std::string(name));
 
+    if(name == "self")
+        root_appliance_model_ = nullptr;
+
     return true;
 }
 
@@ -833,39 +888,14 @@ void ConfigStore::Settings::Impl::clear_instances()
         log_->remove_device(std::string(dev.second.name_));
 
     devices_.clear();
-}
-
-static bool is_qualified_name(const std::string &name,
-                              size_t *out_sep_pos = nullptr)
-{
-    const auto sep_pos = name.find('.');
-
-    if(sep_pos == std::string::npos || sep_pos == 0 ||
-       sep_pos == name.length() - 1)
-        return false;
-
-    if(out_sep_pos != nullptr)
-        *out_sep_pos = sep_pos;
-
-    return true;
-}
-
-static std::tuple<std::string, std::string>
-split_qualified_name(const std::string &name)
-{
-    size_t sep_pos;
-    if(!is_qualified_name(name, &sep_pos))
-        Error() << "element name \"" << name <<
-            "\" is not a fully qualified name";
-
-    return std::make_tuple(name.substr(0, sep_pos), name.substr(sep_pos + 1));
+    root_appliance_model_ = nullptr;
 }
 
 static std::tuple<Device &, std::string>
 get_device_and_element_name(const std::string &qualified_name,
                             std::unordered_map<std::string, Device> &devices)
 {
-    const auto qname(split_qualified_name(qualified_name));
+    const auto qname(StaticModels::Utils::split_qualified_name(qualified_name));
     const auto &device_name(std::get<0>(qname));
 
     try
@@ -878,15 +908,6 @@ get_device_and_element_name(const std::string &qualified_name,
     }
 
     Error() << "unknown device \"" << device_name << "\"";
-}
-
-static std::tuple<const Device &, std::string>
-get_device_and_element_name(const std::string &qualified_name,
-                            const std::unordered_map<std::string, Device> &devices)
-{
-    const auto qname(split_qualified_name(qualified_name));
-    const auto &device_name(std::get<0>(qname));
-    return std::make_tuple(std::ref(devices.at(device_name)), std::move(std::get<1>(qname)));
 }
 
 void ConfigStore::Settings::Impl::set_element_values(const std::string &qualified_name,
@@ -961,15 +982,15 @@ void ConfigStore::Settings::Impl::add_connection(const std::string &from,
 void ConfigStore::Settings::Impl::remove_connections(const std::string &from,
                                                      const std::string &to)
 {
-    if(is_qualified_name(from))
+    if(StaticModels::Utils::is_qualified_name(from))
     {
         auto d(get_device_and_element_name(from, devices_));
         auto &dev(std::get<0>(d));
         const auto &element_id(std::get<1>(d));
 
-        if(is_qualified_name(to))
+        if(StaticModels::Utils::is_qualified_name(to))
         {
-            const auto &target(split_qualified_name(to));
+            const auto &target(StaticModels::Utils::split_qualified_name(to));
             dev.remove_connection_on_sink(element_id, std::get<0>(target),
                                           std::get<1>(target), *log_);
         }
@@ -980,9 +1001,9 @@ void ConfigStore::Settings::Impl::remove_connections(const std::string &from,
     {
         auto &dev(devices_.at(from));
 
-        if(is_qualified_name(to))
+        if(StaticModels::Utils::is_qualified_name(to))
         {
-            const auto &target(split_qualified_name(to));
+            const auto &target(StaticModels::Utils::split_qualified_name(to));
             dev.remove_connections_with_target(std::get<0>(target),
                                                std::get<1>(target),
                                                *log_);
@@ -994,7 +1015,7 @@ void ConfigStore::Settings::Impl::remove_connections(const std::string &from,
 
 void ConfigStore::Settings::Impl::remove_outgoing_connections(const std::string &from)
 {
-    if(is_qualified_name(from))
+    if(StaticModels::Utils::is_qualified_name(from))
     {
         auto d(get_device_and_element_name(from, devices_));
         auto &dev(std::get<0>(d));
@@ -1010,7 +1031,7 @@ void ConfigStore::Settings::Impl::remove_outgoing_connections(const std::string 
 
 void ConfigStore::Settings::Impl::remove_ingoing_connections(const std::string &to)
 {
-    if(!is_qualified_name(to))
+    if(!StaticModels::Utils::is_qualified_name(to))
     {
         if(devices_.find(to) != devices_.end())
             for(auto &d : devices_)
@@ -1018,7 +1039,7 @@ void ConfigStore::Settings::Impl::remove_ingoing_connections(const std::string &
     }
     else
     {
-        const auto &target(split_qualified_name(to));
+        const auto &target(StaticModels::Utils::split_qualified_name(to));
         if(devices_.find(std::get<0>(target)) != devices_.end())
             for(auto &d : devices_)
                 d.second.remove_connections_with_target(std::get<0>(target),
@@ -1031,6 +1052,39 @@ void ConfigStore::Settings::Impl::remove_all_connections()
 {
     for(auto &dev : devices_)
         dev.second.remove_connections(*log_);
+}
+
+const StaticModels::DeviceModel *
+ConfigStore::Settings::Impl::get_device_model(const std::string &name)
+{
+    const auto dm(models_.find(name));
+    if(dm != models_.end())
+        return dm->second.get();
+
+    models_.emplace(name, nullptr);
+
+    const auto &model(models_database_.get_device_model_definition(name));
+    if(model.is_null())
+    {
+        msg_error(0, LOG_NOTICE,
+                  "No model defined for device ID \"%s\"", name.c_str());
+        return nullptr;
+    }
+
+    try
+    {
+        models_.erase(name);
+        return
+            models_.emplace(name,
+                std::make_unique<StaticModels::DeviceModel>(
+                    StaticModels::DeviceModel::mk_model(std::string(name), model)))
+            .first->second.get();
+    }
+    catch(const std::exception &e)
+    {
+        msg_error(0, LOG_NOTICE, "%s", e.what());
+        return nullptr;
+    }
 }
 
 nlohmann::json ConfigStore::Settings::Impl::json() const
@@ -1073,38 +1127,8 @@ nlohmann::json ConfigStore::Settings::Impl::json() const
     return result;
 }
 
-const nlohmann::json &ConfigStore::Settings::Impl::retrieve_control_definition_from_model(const std::string &qualified_control_name) const
-{
-    static const nlohmann::json empty;
-
-    const auto dev_and_qualified_ctrlname(get_device_and_element_name(qualified_control_name, devices_));
-    const auto &model(models_.get_device_model(std::get<0>(dev_and_qualified_ctrlname).device_id_));
-
-    if(model.is_null())
-        return empty;
-
-    const auto &elemname_and_ctrlname(split_qualified_name(std::get<1>(dev_and_qualified_ctrlname)));
-    const auto &elemname(std::get<0>(elemname_and_ctrlname));
-    const auto &ctrlname(std::get<1>(elemname_and_ctrlname));
-
-    for(const auto &e : model.at("elements"))
-    {
-        try
-        {
-            if(e.at("id") == elemname)
-                return e.at("element").at("controls").at(ctrlname);
-        }
-        catch(...)
-        {
-            /* ignore */
-        }
-    }
-
-    return empty;
-}
-
-ConfigStore::Settings::Settings(const StaticModels::DeviceModels &models):
-    impl_(std::make_unique<Impl>(models))
+ConfigStore::Settings::Settings(const StaticModels::DeviceModelsDatabase &models_database):
+    impl_(std::make_unique<Impl>(models_database))
 {}
 
 ConfigStore::Settings::~Settings() = default;
@@ -1152,19 +1176,6 @@ nlohmann::json ConfigStore::ConstSettingsJSON::json() const
     }
 }
 
-nlohmann::json ConfigStore::ConstSettingsJSON::retrieve_control_definition_from_model(const std::string &qualified_control_name) const
-{
-    try
-    {
-        return settings_.impl_->retrieve_control_definition_from_model(qualified_control_name);
-    }
-    catch(const std::exception &e)
-    {
-        msg_error(0, LOG_NOTICE, "%s", e.what());
-        return nlohmann::json();
-    }
-}
-
 void ConfigStore::SettingsJSON::update(const nlohmann::json &j)
 {
     try
@@ -1201,4 +1212,32 @@ void ConfigStore::DeviceContext::for_each_setting(const SettingReportFn &apply) 
             // cppcheck-suppress useStlAlgorithm
             if(!apply(elem.second.name_, v.first, v.second))
                 return;
+}
+
+const StaticModels::DeviceModel *ConfigStore::DeviceContext::get_model() const
+{
+    return device_.get_model();
+}
+
+void ConfigStore::DeviceContext::for_each_setting(const std::string &element,
+                                                  const SettingReportFn &apply) const
+{
+    const auto it(device_.get_elements().find(element));
+    if(it == device_.get_elements().end())
+        return;
+
+    for(const auto &v : it->second.get_values())
+        // cppcheck-suppress useStlAlgorithm
+        if(!apply(element, v.first, v.second))
+            return;
+}
+
+bool ConfigStore::DeviceContext::for_each_signal_path(
+        bool is_root_device,
+        const ModelCompliant::SignalPathTracker::EnumerateCallbackFn &apply) const
+{
+    const auto *sp = device_.get_signal_paths();
+    return sp != nullptr
+        ? sp->enumerate_active_signal_paths(apply, is_root_device)
+        : false;
 }

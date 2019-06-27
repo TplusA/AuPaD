@@ -19,16 +19,20 @@
  * MA  02110-1301, USA.
  */
 
-#ifndef CONFIGSTORE_PLUGIN_HH
-#define CONFIGSTORE_PLUGIN_HH
+#ifndef CLIENT_PLUGIN_HH
+#define CLIENT_PLUGIN_HH
 
 #include <string>
+#include <vector>
 
 namespace ConfigStore
 {
-
 class Settings;
 class Changes;
+}
+
+namespace ClientPlugin
+{
 
 class Plugin
 {
@@ -53,8 +57,10 @@ class Plugin
 
     virtual void registered() = 0;
     virtual void unregistered() = 0;
-    virtual void report_changes(const Settings &settings, const Changes &changes) const = 0;
-    virtual bool full_report(const Settings &settings, std::string &report) const = 0;
+    virtual void report_changes(const ConfigStore::Settings &settings,
+                                const ConfigStore::Changes &changes) const = 0;
+    virtual bool full_report(const ConfigStore::Settings &settings,
+                             std::string &report, std::vector<std::string> &extra) const = 0;
 
     bool has_clients() const { return reference_count_ > 0; }
     void add_client() { ++reference_count_; }
@@ -63,4 +69,4 @@ class Plugin
 
 }
 
-#endif /* !CONFIGSTORE_PLUGIN_HH */
+#endif /* !CLIENT_PLUGIN_HH */

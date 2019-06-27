@@ -18,8 +18,8 @@
                 { "id": "usb_front",    "parent": "strbo_i2s" }
             ],
             "audio_sinks": [
-                { "id": "analog_line_out" },
-                { "id": "digital_out" }
+                { "id": "analog_line_out", "roon": { "rank": 1 } },
+                { "id": "digital_out", "roon": { "rank": 0 } }
             ],
             "elements": [
                 {
@@ -135,8 +135,8 @@
                         "bluetooth":           "input_select.in7",
                         "disc_drive":          "input_select.in8",
                         "usb_dac_in":          "input_select.in9",
-                        "input_select.out0":   "digital_out",
-                        "input_select.out1":   "dsd_select",
+                        "input_select":        "digital_out",
+                        "input_select":        "dsd_select",
                         "dsd_select.out0":     "ta_dac",
                         "dsd_select.out1":     [ "dsp", "digital_out" ],
                         "dsp":                 "dac",
@@ -150,20 +150,7 @@
                     "io_mapping": {
                         "select": "input_select@sel",
                         "mapping": "mux",
-                        "mapping_table": {
-                            "disabled": [
-                                "input_select.in0", null,
-                                "input_select.in1", null,
-                                "input_select.in2", null,
-                                "input_select.in3", null,
-                                "input_select.in4", null,
-                                "input_select.in5", null,
-                                "input_select.in6", null,
-                                "input_select.in7", null,
-                                "input_select.in8", null,
-                                "input_select.in9", null
-                            ]
-                        }
+                        "mapping_table": { "disabled": null }
                     }
                 },
                 {
@@ -266,7 +253,7 @@
                 { "id": "recorder_in" }
             ],
             "audio_sinks": [
-                { "id": "speaker_out" },
+                { "id": "speaker_out", "roon": { "rank": 0 } },
                 { "id": "pre_out" },
                 { "id": "record_out" }
             ],
@@ -459,8 +446,8 @@
                         "select": "pre_out_enable@enable",
                         "mapping": "table",
                         "mapping_table": {
-                            "on":  [ "pre_out_enable.in0", "pre_out_enable.out0" ],
-                            "off": [ "pre_out_enable.in0", null ]
+                            "on":  [ "in0", "out0" ],
+                            "off": [ "in0", null ]
                         }
                     }
                 },
@@ -556,10 +543,10 @@
             ],
             "audio_sinks": [
                 { "id": "digital_out" },
-                { "id": "speaker_out" },
+                { "id": "speaker_out", "roon": { "rank": 0 } },
                 { "id": "subwoofer_out" },
                 { "id": "analog_line_out" },
-                { "id": "headphone_out" }
+                { "id": "headphone_out", "roon": { "rank": 1 } }
             ],
             "elements": [
                 {
@@ -588,6 +575,7 @@
                                 "min": 0, "max": 85, "step": 1, "scale": "steps",
                                 "neutral_setting": 85,
                                 "roon": {
+                                    "rank": 0,
                                     "template": {
                                         "type": "digital_volume",
                                         "quality": "high"
@@ -604,6 +592,7 @@
                                 "min": -85, "max": 85, "step": 1, "scale": "steps",
                                 "neutral_setting": 0,
                                 "roon": {
+                                    "rank": 1,
                                     "template": {
                                         "type": "balance",
                                         "quality": "lossless"
@@ -620,6 +609,7 @@
                             "loudness_enable": {
                                 "type": "on_off",
                                 "roon": {
+                                    "rank": 2,
                                     "template": {
                                         "type": "t+a",
                                         "quality": "enhanced",
@@ -635,6 +625,7 @@
                                 "min": -12, "max": 12, "step": 1, "scale": "steps",
                                 "neutral_setting": 0,
                                 "roon": {
+                                    "rank": 5,
                                     "template": {
                                         "type": "eq",
                                         "quality": "enhanced",
@@ -654,6 +645,7 @@
                                 "min": -6, "max": 6, "step": 0.5, "scale": "steps",
                                 "neutral_setting": 0,
                                 "roon": {
+                                    "rank": 4,
                                     "template": {
                                         "type": "eq",
                                         "quality": "enhanced",
@@ -673,6 +665,7 @@
                                 "min": -12, "max": 12, "step": 1, "scale": "steps",
                                 "neutral_setting": 0,
                                 "roon": {
+                                    "rank": 3,
                                     "template": {
                                         "type": "eq",
                                         "quality": "enhanced",
@@ -697,6 +690,7 @@
                                 "min": -5, "max": 4, "step": 1, "scale": "steps",
                                 "neutral_setting": 0,
                                 "roon": {
+                                    "rank": 6,
                                     "template": {
                                         "type": "t+a",
                                         "quality": "enhanced",
@@ -715,6 +709,7 @@
                                 "min": -3, "max": 2, "step": 1, "scale": "steps",
                                 "neutral_setting": 0,
                                 "roon": {
+                                    "rank": 7,
                                     "template": {
                                         "type": "t+a",
                                         "quality": "enhanced",
@@ -731,6 +726,7 @@
                                 "type": "on_off",
                                 "neutral_setting": "off",
                                 "roon": {
+                                    "rank": 8,
                                     "template": {
                                         "type": "t+a",
                                         "quality": "enhanced",
@@ -802,6 +798,13 @@
                     }
                 },
                 {
+                    "id": "analog_or_digital",
+                    "element": {
+                        "description": "Forward as analog or digital signal",
+                        "controls": { "is_digital": { "type": "on_off" } }
+                    }
+                },
+                {
                     "id": "adc",
                     "element": { "description": "A/D converter" }
                 }
@@ -819,12 +822,12 @@
                         "tuner_dab":         "input_select.in7",
                         "bluetooth":         "input_select.in8",
                         "disc_drive":        "input_select.in9",
-                        "input_select.out0": "adc",
+                        "input_select":      "analog_or_digital",
+                        "analog_or_digital.out0": "adc",
                         "adc":               "dsp",
-                        "input_select.out1": [ "dsp", "digital_out" ],
-                        "dsp.out0":          [ "analog_line_out", "headphone_out" ],
-                        "dsp.out1":          "subwoofer_out",
-                        "dsp.out2":          "amp",
+                        "analog_or_digital.out1": [ "dsp", "digital_out" ],
+                        "dsp":               ["analog_line_out", "headphone_out",
+                                              "subwoofer_out", "amp"],
                         "amp":               "speaker_out"
                     }
                 },
@@ -836,11 +839,17 @@
                 },
                 {
                     "io_mapping": {
+                        "select": "analog_or_digital@is_digital",
+                        "mapping": "demux"
+                    }
+                },
+                {
+                    "io_mapping": {
                         "select": "amp@enable",
                         "mapping": "table",
                         "mapping_table": {
-                            "on":  [ "amp.in0", "amp.out0" ],
-                            "off": [ "amp.in0", null ]
+                            "on":  [ "in0", "out0" ],
+                            "off": [ "in0", null ]
                         }
                     }
                 }

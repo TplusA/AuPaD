@@ -20,7 +20,7 @@
 #
 
 if WITH_DOCTEST
-check_PROGRAMS = test_configstore test_configstore_roon
+check_PROGRAMS = test_configstore test_configstore_roon test_signal_paths
 
 TESTS = run_tests.sh
 
@@ -49,7 +49,8 @@ test_configstore_SOURCES = \
     mock_expectation.hh
 test_configstore_LDADD = \
     libtestrunner.la \
-    $(top_builddir)/src/libconfigstore.la
+    $(top_builddir)/src/libconfigstore.la \
+    $(top_builddir)/src/libsigpath.la
 test_configstore_CPPFLAGS = $(AM_CPPFLAGS)
 test_configstore_CXXFLAGS = $(AM_CXXFLAGS)
 
@@ -61,9 +62,21 @@ test_configstore_roon_SOURCES = \
 test_configstore_roon_LDADD = \
     libtestrunner.la \
     $(top_builddir)/src/libconfigstore.la \
-    $(top_builddir)/src/libconfigstore_roon.la
+    $(top_builddir)/src/libconfigstore_roon.la \
+    $(top_builddir)/src/libsigpath.la
 test_configstore_roon_CPPFLAGS = $(AM_CPPFLAGS)
 test_configstore_roon_CXXFLAGS = $(AM_CXXFLAGS)
+
+test_signal_paths_SOURCES = \
+    test_signal_paths.cc \
+    mock_os.hh mock_os.cc \
+    mock_messages.hh mock_messages.cc \
+    mock_expectation.hh
+test_signal_paths_LDADD = \
+    libtestrunner.la \
+    $(top_builddir)/src/libsigpath.la
+test_signal_paths_CPPFLAGS = $(AM_CPPFLAGS)
+test_signal_paths_CXXFLAGS = $(AM_CXXFLAGS)
 
 BUILT_SOURCES = test_models.json
 

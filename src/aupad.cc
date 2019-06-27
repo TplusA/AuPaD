@@ -23,7 +23,7 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include "configstore_plugin_manager.hh"
+#include "client_plugin_manager.hh"
 #include "configstore.hh"
 #include "configstore_changes.hh"
 #include "configstore_json.hh"
@@ -184,7 +184,7 @@ static void process_dcpd_audio_path_update(
         const gchar *const json,
         const gchar *const *const extra,
         TDBus::SignalHandlerTraits<TDBus::JSONEmitterObject>::template UserData<
-            ConfigStore::PluginManager &, ConfigStore::Settings &
+            ClientPlugin::PluginManager &, ConfigStore::Settings &
         > *const d)
 {
     auto &settings(std::get<1>(d->user_data));
@@ -211,7 +211,7 @@ static void process_dcpd_audio_path_update(
 static void dcpd_appeared(GDBusConnection *connection,
                           TDBus::Proxy<tdbusJSONReceiver> &requests_for_dcpd_proxy,
                           TDBus::Proxy<tdbusJSONEmitter> &updates_from_dcpd_proxy,
-                          ConfigStore::PluginManager &pm,
+                          ClientPlugin::PluginManager &pm,
                           ConfigStore::Settings &settings)
 {
     msg_vinfo(MESSAGE_LEVEL_DEBUG, "Connecting to DCPD (audio paths)");
@@ -258,7 +258,7 @@ static void dcpd_appeared(GDBusConnection *connection,
  * requests and other requests to (D-Bus methods sent by us)
  */
 static void listen_to_dcpd_audio_path_updates(TDBus::Bus &bus,
-                                              ConfigStore::PluginManager &pm,
+                                              ClientPlugin::PluginManager &pm,
                                               ConfigStore::Settings &settings)
 {
     static TDBus::Proxy<tdbusJSONReceiver>
@@ -281,40 +281,47 @@ static void listen_to_dcpd_audio_path_updates(TDBus::Bus &bus,
         });
 }
 
+static std::vector<const char *>
+strings_to_cstrings(const std::vector<std::string> &vs)
+{
+    std::vector<const char *> c_array(vs.size() + 1);
+    std::transform(vs.begin(), vs.end(), c_array.begin(),
+                   [] (const std::string &s) { return s.c_str(); });
+    c_array.back() = nullptr;
+    return c_array;
+}
+
 static gboolean get_full_roon_audio_path(
         tdbusJSONEmitter *const object,
         GDBusMethodInvocation *const invocation,
         const gchar *const *const params,
         TDBus::MethodHandlerTraits<TDBus::JSONEmitterGet>::template UserData<
-            const ConfigStore::RoonOutput &, const ConfigStore::Settings &
+            const ClientPlugin::Roon &, const ConfigStore::Settings &
         > *const d)
 {
-    static const char *const empty_extra[] = {nullptr};
-
     std::string report;
-    if(std::get<0>(d->user_data).full_report(std::get<1>(d->user_data), report))
-        d->done(invocation, report.c_str(), empty_extra);
+    std::vector<std::string> extra;
+    if(std::get<0>(d->user_data).full_report(std::get<1>(d->user_data), report, extra))
+        d->done(invocation, report.c_str(), strings_to_cstrings(extra).data());
     else
+    {
+        static const char *const empty_extra[] = {nullptr};
         d->done(invocation, "[]", empty_extra);
+    }
 
     return TRUE;
 }
 
 static void send_audio_signal_path_to_roon(const std::string &asp,
-                                           bool is_full_signal_path,
+                                           const std::vector<std::string> &extra,
                                            TDBus::Iface<tdbusJSONEmitter> &iface)
 {
-    const char *const extra[] =
-    {
-        is_full_signal_path ? "signal_path" : "update",
-        nullptr
-    };
-
-    iface.emit(tdbus_jsonemitter_emit_object, asp.c_str(), extra);
+    iface.emit(tdbus_jsonemitter_emit_object, asp.c_str(),
+               strings_to_cstrings(extra).data());
 }
 
-static std::unique_ptr<ConfigStore::RoonOutput>
-create_roon_plugin(TDBus::Bus &bus, MonitorManager &mm,
+static std::unique_ptr<ClientPlugin::Roon>
+create_roon_plugin(TDBus::Bus &bus, ClientPlugin::MonitorManager &mm,
                    const ConfigStore::Settings &settings)
 {
     static constexpr char object_name[] = "/de/tahifi/AuPaD/Roon";
@@ -324,16 +331,15 @@ create_roon_plugin(TDBus::Bus &bus, MonitorManager &mm,
 
     static TDBus::Iface<tdbusJSONEmitter> emitter_iface(object_name);
     auto *work_around_gcc_bug = &emitter_iface;
-    auto roon(std::make_unique<ConfigStore::RoonOutput>(
+    auto roon(std::make_unique<ClientPlugin::Roon>(
             [work_around_gcc_bug]
-            (const auto &asp, bool is_full_signal_path)
+            (const auto &asp, const auto &extra)
             {
-                send_audio_signal_path_to_roon(asp, is_full_signal_path,
-                                               *work_around_gcc_bug);
+                send_audio_signal_path_to_roon(asp, extra, *work_around_gcc_bug);
             }));
     emitter_iface.connect_method_handler<TDBus::JSONEmitterGet>(
         get_full_roon_audio_path,
-        *const_cast<const ConfigStore::RoonOutput *>(roon.get()), settings);
+        *const_cast<const ClientPlugin::Roon *>(roon.get()), settings);
     bus.add_auto_exported_interface(emitter_iface);
 
     mm.mk_registration_interface(object_name, *roon);
@@ -374,13 +380,13 @@ int main(int argc, char *argv[])
 
     TDBus::setup(TDBus::session_bus());
 
-    static StaticModels::DeviceModels models;
-    models.load(parameters.device_models_file_);
+    static StaticModels::DeviceModelsDatabase models_database;
+    models_database.load(parameters.device_models_file_);
 
-    static ConfigStore::Settings settings(models);
+    static ConfigStore::Settings settings(models_database);
 
-    ConfigStore::PluginManager pm;
-    MonitorManager mm(TDBus::session_bus());
+    ClientPlugin::PluginManager pm;
+    ClientPlugin::MonitorManager mm(TDBus::session_bus());
     pm.register_plugin(create_roon_plugin(TDBus::session_bus(), mm, settings));
 
     listen_to_dcpd_audio_path_updates(TDBus::session_bus(), pm, settings);

@@ -37,7 +37,7 @@ TEST_SUITE_BEGIN("Configuration store");
 class Fixture
 {
   protected:
-    StaticModels::DeviceModels models;
+    StaticModels::DeviceModelsDatabase models;
     ConfigStore::Settings settings;
     std::unique_ptr<MockMessages::Mock> mock_messages;
 
@@ -150,6 +150,8 @@ TEST_CASE_FIXTURE(Fixture, "Single unconfigured instance")
                 { "op": "add_instance", "name": "self", "id": "MP3100HV" }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input);
 
     const auto expected_json = R"({ "devices": { "self": "MP3100HV" }})"_json;
@@ -167,6 +169,8 @@ TEST_CASE_FIXTURE(Fixture, "Single unconfigured instance through JSON settings")
             { "name", "self" },
             { "id", "MP3100HV" }
         });
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     js.update(input);
 
     const nlohmann::json expected_json = { { "devices", { { "self", "MP3100HV" } } } };
@@ -182,6 +186,10 @@ TEST_CASE_FIXTURE(Fixture, "Two unconfigured instances")
                 { "op": "add_instance", "name": "pa", "id": "PA3000HV" }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input);
 
     const auto expected_json = R"(
@@ -204,6 +212,10 @@ TEST_CASE_FIXTURE(Fixture, "Three unconfigured instances")
                 { "op": "add_instance", "name": "b", "id": "PA3000HV" }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input);
 
     const auto expected_json = R"(
@@ -227,6 +239,12 @@ TEST_CASE_FIXTURE(Fixture, "Remove one out of three unconfigured instances")
                 { "op": "add_instance", "name": "b", "id": "PA2000R" }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
     const std::string input2 = R"(
@@ -255,6 +273,8 @@ TEST_CASE_FIXTURE(Fixture, "Clear all instances")
                 { "op": "add_instance", "name": "self", "id": "R1000E" }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
     const std::string input2 = R"(
@@ -292,6 +312,8 @@ TEST_CASE_FIXTURE(Fixture, "Full initial audio path information")
                 }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input);
 
     const auto expected_json = R"(
@@ -337,6 +359,8 @@ TEST_CASE_FIXTURE(Fixture, "Update single value after initial audio path informa
                 }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
     const std::string input2 = R"(
@@ -391,6 +415,8 @@ TEST_CASE_FIXTURE(Fixture, "Set single value, purge remaining settings")
                 }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
     const std::string input2 = R"(
@@ -438,6 +464,8 @@ TEST_CASE_FIXTURE(Fixture, "Unset one element value, make it an unknown value")
                 }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
     const std::string input2 = R"(
@@ -477,6 +505,8 @@ TEST_CASE_FIXTURE(Fixture, "Unset values of all controls in an element")
                 }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
     {
@@ -550,6 +580,12 @@ TEST_CASE_FIXTURE(Fixture, "Connect audio output of one instance to input of ano
                 }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input);
 
     const auto expected_json = R"(
@@ -595,35 +631,49 @@ void Fixture::bunch_of_connected_instances(bool clear_change_log)
         {
             "audio_path_changes": [
                 { "op": "clear_instances" },
-                { "op": "add_instance", "name": "s", "id": "MP3100HV" },
+                { "op": "add_instance", "name": "self", "id": "MP3100HV" },
                 { "op": "add_instance", "name": "a", "id": "A" },
                 { "op": "add_instance", "name": "b", "id": "B" },
                 { "op": "add_instance", "name": "c", "id": "C" },
                 { "op": "add_instance", "name": "d", "id": "D" },
                 { "op": "add_instance", "name": "e", "id": "E" },
                 { "op": "add_instance", "name": "f", "id": "F" },
-                { "op": "connect", "from": "s.o1", "to": "a.i4" },
-                { "op": "connect", "from": "s.o1", "to": "c.i1" },
-                { "op": "connect", "from": "s.o2", "to": "a.i1" },
-                { "op": "connect", "from": "s.o2", "to": "b.i3" },
-                { "op": "connect", "from": "s.o2", "to": "c.i2" },
-                { "op": "connect", "from": "s.o3", "to": "a.i5" },
-                { "op": "connect", "from": "s.o4", "to": "a.i5" },
+                { "op": "connect", "from": "self.o1", "to": "a.i4" },
+                { "op": "connect", "from": "self.o1", "to": "c.i1" },
+                { "op": "connect", "from": "self.o2", "to": "a.i1" },
+                { "op": "connect", "from": "self.o2", "to": "b.i3" },
+                { "op": "connect", "from": "self.o2", "to": "c.i2" },
+                { "op": "connect", "from": "self.o3", "to": "a.i5" },
+                { "op": "connect", "from": "self.o4", "to": "a.i5" },
                 { "op": "connect", "from": "a.o1", "to": "d.i1" },
                 { "op": "connect", "from": "b.o1", "to": "e.i1" },
                 { "op": "connect", "from": "c.o1", "to": "e.i2" }
             ]
         })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
     settings.update(input);
 
     const auto expected_json = R"(
         {
             "devices": {
-                "s": "MP3100HV",
+                "self": "MP3100HV",
                 "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F"
             },
             "connections": {
-                "s": {
+                "self": {
                     "o1": [ "a.i4", "c.i1" ],
                     "o2": [ "a.i1", "b.i3", "c.i2" ],
                     "o3": [ "a.i5" ],
@@ -666,7 +716,7 @@ TEST_CASE_FIXTURE(Fixture, "Changed devices are logged and can be processed")
     std::sort(reported_devices.begin(), reported_devices.end());
 
     static const std::array<const std::string, 7> expected_devices
-    { "a", "b", "c", "d", "e", "f", "s" };
+    { "a", "b", "c", "d", "e", "f", "self" };
 
     std::vector<std::string> diff;
     std::set_symmetric_difference(expected_devices.begin(), expected_devices.end(),
@@ -700,10 +750,10 @@ TEST_CASE_FIXTURE(Fixture, "Changed connections are logged and can be processed"
 
     static const std::array<const std::pair<std::string, std::string>, 10> expected_connections
     {{
-        { "a.o1", "d.i1" }, { "b.o1", "e.i1" }, { "c.o1", "e.i2" },
-        { "s.o1", "a.i4" }, { "s.o1", "c.i1" }, { "s.o2", "a.i1" },
-        { "s.o2", "b.i3" }, { "s.o2", "c.i2" }, { "s.o3", "a.i5" },
-        { "s.o4", "a.i5" },
+        { "a.o1", "d.i1" },    { "b.o1", "e.i1" },    { "c.o1", "e.i2" },
+        { "self.o1", "a.i4" }, { "self.o1", "c.i1" }, { "self.o2", "a.i1" },
+        { "self.o2", "b.i3" }, { "self.o2", "c.i2" }, { "self.o3", "a.i5" },
+        { "self.o4", "a.i5" },
     }};
 
     std::vector<std::pair<const std::string, const std::string>> diff;
@@ -724,7 +774,7 @@ TEST_CASE_FIXTURE(Fixture, "Changed values are logged and can be processed")
         {
             "audio_path_changes": [
                 {
-                    "op": "set", "element": "s.dsp",
+                    "op": "set", "element": "self.dsp",
                     "kv": {
                         "filter": { "type": "s", "value": "iir_bezier" },
                         "phase_invert": { "type": "b", "value": true }
@@ -774,12 +824,12 @@ TEST_CASE_FIXTURE(Fixture, "Changed values are logged and can be processed")
 
     static const std::array<const std::pair<std::string, ConfigStore::Value>, 6> expected_values
     {{
-        { "b.x.foo",            ConfigStore::Value("s", nlohmann::json("bar")) },
-        { "b.x.hello",          ConfigStore::Value("s", nlohmann::json("world")) },
-        { "b.y.answer",         ConfigStore::Value("i", nlohmann::json(42)) },
-        { "e.z.v",              ConfigStore::Value("D", nlohmann::json(-0.75)) },
-        { "s.dsp.filter",       ConfigStore::Value("s", nlohmann::json("iir_bezier")) },
-        { "s.dsp.phase_invert", ConfigStore::Value("b", nlohmann::json(true)) },
+        { "b.x.foo",         ConfigStore::Value("s", nlohmann::json("bar")) },
+        { "b.x.hello",       ConfigStore::Value("s", nlohmann::json("world")) },
+        { "b.y.answer",      ConfigStore::Value("i", nlohmann::json(42)) },
+        { "e.z.v",           ConfigStore::Value("D", nlohmann::json(-0.75)) },
+        { "self.dsp.filter", ConfigStore::Value("s", nlohmann::json("iir_bezier")) },
+        { "self.dsp.phase_invert", ConfigStore::Value("b", nlohmann::json(true)) },
     }};
 
     std::vector<std::pair<const std::string, const ConfigStore::Value>> diff;
@@ -808,11 +858,11 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect single one-to-one audio connection")
     const auto expected_json = R"(
         {
             "devices": {
-                "s": "MP3100HV",
+                "self": "MP3100HV",
                 "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F"
             },
             "connections": {
-                "s": {
+                "self": {
                     "o1": [ "a.i4", "c.i1" ],
                     "o2": [ "a.i1", "b.i3", "c.i2" ],
                     "o3": [ "a.i5" ],
@@ -838,7 +888,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect single one-to-many audio connection")
     const std::string input = R"(
         {
             "audio_path_changes": [
-                { "op": "disconnect", "from": "s.o4", "to": "a.i5" }
+                { "op": "disconnect", "from": "self.o4", "to": "a.i5" }
             ]
         })";
     settings.update(input);
@@ -846,11 +896,11 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect single one-to-many audio connection")
     const auto expected_json = R"(
         {
             "devices": {
-                "s": "MP3100HV",
+                "self": "MP3100HV",
                 "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F"
             },
             "connections": {
-                "s": {
+                "self": {
                     "o1": [ "a.i4", "c.i1" ],
                     "o2": [ "a.i1", "b.i3", "c.i2" ],
                     "o3": [ "a.i5" ]
@@ -878,11 +928,11 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect complete one-to-many audio connection")
     const auto expected_json = R"(
         {
             "devices": {
-                "s": "MP3100HV",
+                "self": "MP3100HV",
                 "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F"
             },
             "connections": {
-                "s": {
+                "self": {
                     "o1": [ "a.i4", "c.i1" ],
                     "o2": [ "a.i1", "b.i3", "c.i2" ]
                 },
@@ -896,7 +946,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect complete one-to-many audio connection")
     /* change log */
     static const std::array<const std::pair<std::string, std::string>, 2> expected_connections
     {{
-        { "s.o3", "a.i5" }, { "s.o4", "a.i5" },
+        { "self.o3", "a.i5" }, { "self.o4", "a.i5" },
     }};
 
     check_disconnected_connections(expected_connections);
@@ -909,7 +959,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect single many-to-one audio connection")
     const std::string input = R"(
         {
             "audio_path_changes": [
-                { "op": "disconnect", "from": "s.o2", "to": "b.i3" }
+                { "op": "disconnect", "from": "self.o2", "to": "b.i3" }
             ]
         })";
     settings.update(input);
@@ -917,11 +967,11 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect single many-to-one audio connection")
     const auto expected_json = R"(
         {
             "devices": {
-                "s": "MP3100HV",
+                "self": "MP3100HV",
                 "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F"
             },
             "connections": {
-                "s": {
+                "self": {
                     "o1": [ "a.i4", "c.i1" ],
                     "o2": [ "a.i1", "c.i2" ],
                     "o3": [ "a.i5" ],
@@ -942,7 +992,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect complete many-to-one audio connection")
     const std::string input = R"(
         {
             "audio_path_changes": [
-                { "op": "disconnect", "from": "s.o2" }
+                { "op": "disconnect", "from": "self.o2" }
             ]
         })";
     settings.update(input);
@@ -950,11 +1000,11 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect complete many-to-one audio connection")
     const auto expected_json = R"(
         {
             "devices": {
-                "s": "MP3100HV",
+                "self": "MP3100HV",
                 "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F"
             },
             "connections": {
-                "s": {
+                "self": {
                     "o1": [ "a.i4", "c.i1" ],
                     "o3": [ "a.i5" ],
                     "o4": [ "a.i5" ]
@@ -969,7 +1019,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect complete many-to-one audio connection")
     /* change log */
     static const std::array<const std::pair<std::string, std::string>, 3> expected_connections
     {{
-        { "s.o2", "a.i1" }, { "s.o2", "b.i3" }, { "s.o2", "c.i2" },
+        { "self.o2", "a.i1" }, { "self.o2", "b.i3" }, { "self.o2", "c.i2" },
     }};
 
     check_disconnected_connections(expected_connections);
@@ -986,11 +1036,11 @@ TEST_CASE_FIXTURE(Fixture, "Removing device in the middle also removes its conne
     const auto expected_json = R"(
         {
             "devices": {
-                "s": "MP3100HV",
+                "self": "MP3100HV",
                 "b": "B", "c": "C", "d": "D", "e": "E", "f": "F"
             },
             "connections": {
-                "s": {
+                "self": {
                     "o1": [ "c.i1" ],
                     "o2": [ "b.i3", "c.i2" ]
                 },
@@ -1040,11 +1090,11 @@ TEST_CASE_FIXTURE(Fixture, "Removing device in the middle also removes its conne
 
     static const std::array<const std::pair<std::string, std::string>, 5> expected_connections
     {{
-        { "a.o1", "d.i1" },
-        { "s.o1", "a.i4" },
-        { "s.o2", "a.i1" },
-        { "s.o3", "a.i5" },
-        { "s.o4", "a.i5" },
+        { "a.o1",    "d.i1" },
+        { "self.o1", "a.i4" },
+        { "self.o2", "a.i1" },
+        { "self.o3", "a.i5" },
+        { "self.o4", "a.i5" },
     }};
 
     std::vector<std::pair<const std::string, const std::string>> diff_connections;
@@ -1062,7 +1112,7 @@ TEST_CASE_FIXTURE(Fixture, "Removing root device also removes its connections")
     bunch_of_connected_instances();
 
     const std::string input = R"(
-        { "audio_path_changes": [ { "op": "rm_instance", "name": "s" } ] })";
+        { "audio_path_changes": [ { "op": "rm_instance", "name": "self" } ] })";
     settings.update(input);
 
     const auto expected_json = R"(
@@ -1090,11 +1140,11 @@ TEST_CASE_FIXTURE(Fixture, "Removing sink device also removes its connections")
     const auto expected_json = R"(
         {
             "devices": {
-                "s": "MP3100HV",
+                "self": "MP3100HV",
                 "a": "A", "b": "B", "c": "C", "d": "D", "f": "F"
             },
             "connections": {
-                "s": {
+                "self": {
                     "o1": [ "a.i4", "c.i1" ],
                     "o2": [ "a.i1", "b.i3", "c.i2" ],
                     "o3": [ "a.i5" ],
@@ -1111,13 +1161,13 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect all outgoing audio connections")
     bunch_of_connected_instances(true);
 
     const std::string input = R"(
-        { "audio_path_changes": [ { "op": "disconnect", "from": "s" } ] })";
+        { "audio_path_changes": [ { "op": "disconnect", "from": "self" } ] })";
     settings.update(input);
 
     const auto expected_json = R"(
         {
             "devices": {
-                "s": "MP3100HV",
+                "self": "MP3100HV",
                 "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F"
             },
             "connections": {
@@ -1131,9 +1181,9 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect all outgoing audio connections")
     /* change log */
     static const std::array<const std::pair<std::string, std::string>, 7> expected_connections
     {{
-        { "s.o1", "a.i4" }, { "s.o1", "c.i1" }, { "s.o2", "a.i1" },
-        { "s.o2", "b.i3" }, { "s.o2", "c.i2" }, { "s.o3", "a.i5" },
-        { "s.o4", "a.i5" },
+        { "self.o1", "a.i4" }, { "self.o1", "c.i1" }, { "self.o2", "a.i1" },
+        { "self.o2", "b.i3" }, { "self.o2", "c.i2" }, { "self.o3", "a.i5" },
+        { "self.o4", "a.i5" },
     }};
 
     check_disconnected_connections(expected_connections);
@@ -1150,11 +1200,11 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect all ingoing audio connections (single sou
     const auto expected_json = R"(
         {
             "devices": {
-                "s": "MP3100HV",
+                "self": "MP3100HV",
                 "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F"
             },
             "connections": {
-                "s": {
+                "self": {
                     "o1": [ "c.i1" ],
                     "o2": [ "b.i3", "c.i2" ]
                 },
@@ -1168,8 +1218,8 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect all ingoing audio connections (single sou
     /* change log */
     static const std::array<const std::pair<std::string, std::string>, 4> expected_connections
     {{
-        { "s.o1", "a.i4" }, { "s.o2", "a.i1" }, { "s.o3", "a.i5" },
-        { "s.o4", "a.i5" },
+        { "self.o1", "a.i4" }, { "self.o2", "a.i1" }, { "self.o3", "a.i5" },
+        { "self.o4", "a.i5" },
     }};
 
     check_disconnected_connections(expected_connections);
@@ -1186,11 +1236,11 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect all ingoing audio connections (multiple s
     const auto expected_json = R"(
         {
             "devices": {
-                "s": "MP3100HV",
+                "self": "MP3100HV",
                 "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F"
             },
             "connections": {
-                "s": {
+                "self": {
                     "o1": [ "a.i4", "c.i1" ],
                     "o2": [ "a.i1", "b.i3", "c.i2" ],
                     "o3": [ "a.i5" ],
@@ -1215,17 +1265,17 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect audio connections from one sink to specif
     bunch_of_connected_instances(true);
 
     const std::string input = R"(
-        { "audio_path_changes": [ { "op": "disconnect", "from": "s.o2", "to": "b" } ] })";
+        { "audio_path_changes": [ { "op": "disconnect", "from": "self.o2", "to": "b" } ] })";
     settings.update(input);
 
     const auto expected_json = R"(
         {
             "devices": {
-                "s": "MP3100HV",
+                "self": "MP3100HV",
                 "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F"
             },
             "connections": {
-                "s": {
+                "self": {
                     "o1": [ "a.i4", "c.i1" ],
                     "o2": [ "a.i1", "c.i2" ],
                     "o3": [ "a.i5" ],
@@ -1240,7 +1290,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect audio connections from one sink to specif
 
     /* change log */
     static const std::array<const std::pair<std::string, std::string>, 1> expected_connections
-    {{ { "s.o2", "b.i3" }, }};
+    {{ { "self.o2", "b.i3" }, }};
 
     check_disconnected_connections(expected_connections);
 }
@@ -1250,17 +1300,17 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect audio connections from all sinks to speci
     bunch_of_connected_instances(true);
 
     const std::string input = R"(
-        { "audio_path_changes": [ { "op": "disconnect", "from": "s", "to": "a.i5" } ] })";
+        { "audio_path_changes": [ { "op": "disconnect", "from": "self", "to": "a.i5" } ] })";
     settings.update(input);
 
     const auto expected_json = R"(
         {
             "devices": {
-                "s": "MP3100HV",
+                "self": "MP3100HV",
                 "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F"
             },
             "connections": {
-                "s": {
+                "self": {
                     "o1": [ "a.i4", "c.i1" ],
                     "o2": [ "a.i1", "b.i3", "c.i2" ]
                 },
@@ -1274,7 +1324,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect audio connections from all sinks to speci
     /* change log */
     static const std::array<const std::pair<std::string, std::string>, 2> expected_connections
     {{
-        { "s.o3", "a.i5" }, { "s.o4", "a.i5" },
+        { "self.o3", "a.i5" }, { "self.o4", "a.i5" },
     }};
 
     check_disconnected_connections(expected_connections);
@@ -1291,11 +1341,11 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect all audio connections between two instanc
     const auto expected_json = R"(
         {
             "devices": {
-                "s": "MP3100HV",
+                "self": "MP3100HV",
                 "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F"
             },
             "connections": {
-                "s": {
+                "self": {
                     "o1": [ "a.i4", "c.i1" ],
                     "o2": [ "a.i1", "b.i3", "c.i2" ],
                     "o3": [ "a.i5" ],
@@ -1325,7 +1375,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect all audio connections")
     const auto expected_json = R"(
         {
             "devices": {
-                "s": "MP3100HV",
+                "self": "MP3100HV",
                 "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F"
             }
         })"_json;
@@ -1334,10 +1384,10 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect all audio connections")
     /* change log */
     static const std::array<const std::pair<std::string, std::string>, 10> expected_connections
     {{
-        { "a.o1", "d.i1" }, { "b.o1", "e.i1" }, { "c.o1", "e.i2" },
-        { "s.o1", "a.i4" }, { "s.o1", "c.i1" }, { "s.o2", "a.i1" },
-        { "s.o2", "b.i3" }, { "s.o2", "c.i2" }, { "s.o3", "a.i5" },
-        { "s.o4", "a.i5" },
+        { "a.o1", "d.i1" },    { "b.o1", "e.i1" },    { "c.o1", "e.i2" },
+        { "self.o1", "a.i4" }, { "self.o1", "c.i1" }, { "self.o2", "a.i1" },
+        { "self.o2", "b.i3" }, { "self.o2", "c.i2" }, { "self.o3", "a.i5" },
+        { "self.o4", "a.i5" },
     }};
 
     check_disconnected_connections(expected_connections);
@@ -1373,6 +1423,47 @@ TEST_CASE_FIXTURE(Fixture, "NOP reports are filtered out")
     ConfigStore::SettingsJSON js(settings);
     CHECK_FALSE(js.extract_changes(changes));
     }
+}
+
+TEST_CASE_FIXTURE(Fixture, "Reintroduction of instances is reported")
+{
+    const std::string input = R"(
+        {
+            "audio_path_changes": [
+                { "op": "clear_instances" },
+                { "op": "add_instance", "name": "self", "id": "MP3100HV" }
+            ]
+        })";
+    expect<MockMessages::MsgError>(mock_messages, 0, LOG_NOTICE,
+                                   "No model defined for device ID \"%s\"", true);
+    settings.update(input);
+
+    const auto expected_json = R"({ "devices": { "self": "MP3100HV" } })"_json;
+    expect_equal(expected_json);
+
+    {
+    ConfigStore::Changes changes;
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    /* ...and again */
+    settings.update(input);
+    expect_equal(expected_json);
+
+    ConfigStore::Changes changes;
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+
+    std::vector<std::string> reported_devices;
+    changes.for_each_changed_device(
+        [&reported_devices] (const auto &name, bool was_added)
+        {
+            CHECK(was_added);
+            reported_devices.push_back(name);
+        });
+    REQUIRE(reported_devices.size() == 1);
+    CHECK(reported_devices[0] == "self");
 }
 
 TEST_CASE_FIXTURE(Fixture, "Clearing settings also clears the log")

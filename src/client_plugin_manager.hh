@@ -19,18 +19,18 @@
  * MA  02110-1301, USA.
  */
 
-#ifndef CONFIGSTORE_PLUGIN_MANAGER_HH
-#define CONFIGSTORE_PLUGIN_MANAGER_HH
+#ifndef CLIENT_PLUGIN_MANAGER_HH
+#define CLIENT_PLUGIN_MANAGER_HH
 
-#include "configstore_plugin.hh"
+#include "client_plugin.hh"
 
 #include <list>
 #include <memory>
 
-namespace ConfigStore
-{
+namespace ConfigStore { class Settings; }
 
-class Settings;
+namespace ClientPlugin
+{
 
 class PluginManager
 {
@@ -51,9 +51,10 @@ class PluginManager
 
     void register_plugin(std::unique_ptr<Plugin> plugin);
     void shutdown() noexcept;
-    void report_changes(const Settings &settings, const Changes &changes) const;
+    void report_changes(const ConfigStore::Settings &settings,
+                        const ConfigStore::Changes &changes) const;
 };
 
 }
 
-#endif /* !CONFIGSTORE_PLUGIN_MANAGER_HH */
+#endif /* !CLIENT_PLUGIN_MANAGER_HH */

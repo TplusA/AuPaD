@@ -55,7 +55,6 @@ class ConstSettingsJSON
     {}
 
     nlohmann::json json() const;
-    nlohmann::json retrieve_control_definition_from_model(const std::string &qualified_control_name) const;
 };
 
 /*!
