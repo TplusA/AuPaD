@@ -1,4 +1,23 @@
-# Audio paths mini DSL
+# A simple audio path specification language
+
+## Introduction
+
+Audio paths are specified using a small language, dubbed _AuPaL_
+(Audio Path Language). This language is specified to make use of a compact
+binary representation, while attempting to keep it readable by using ASCII
+command codes.
+
+### DCP register
+
+Audio path specifications must be sent to Streaming Board register 82.
+
+### _AuPaL_ compiler
+
+There is a compiler, named `aupalc.py`, for transforming a text representation
+of _AuPaL_ to proper binary _AuPaL_. It can be used for creating test vectors
+and for _AuPaL_ generator verification. Requires Python 3.
+
+# Audio paths mini DSL specification
 
 ## Command codes
 
