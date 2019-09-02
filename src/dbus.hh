@@ -19,8 +19,8 @@
  * MA  02110-1301, USA.
  */
 
-#ifndef DBUS_CC
-#define DBUS_CC
+#ifndef DBUS_HH
+#define DBUS_HH
 
 namespace TDBus
 {
@@ -31,4 +31,4 @@ namespace TDBus
     Bus &system_bus();
 }
 
-#endif /* !DBUS_CC */
+#endif /* !DBUS_HH */
