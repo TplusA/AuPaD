@@ -262,7 +262,7 @@ class PathElement
         parent_element_ = &other;
     }
 
-    const bool is_sub_element() const { return parent_element_ != nullptr; }
+    bool is_sub_element() const { return parent_element_ != nullptr; }
 
     virtual void finalize(const std::string &device_id) const
     {
