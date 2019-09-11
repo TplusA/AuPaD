@@ -33,6 +33,8 @@
 #include "model_parsing_utils_json.hh"
 #include "messages.h"
 
+const uint16_t ClientPlugin::Roon::Cache::INVALID_RANK;
+
 void ClientPlugin::Roon::registered()
 {
     msg_info("Registered plugin \"%s\"", name_.c_str());
@@ -431,33 +433,40 @@ static bool patch_entry_for_name(const std::string &name,
     return false;
 }
 
-static uint16_t determine_path_rank(
+static const std::pair<uint16_t, std::string> *determine_path_rank_and_output_method(
         const ModelCompliant::SignalPathTracker::ActivePath &p,
         const StaticModels::DeviceModel *device_model,
-        std::unordered_map<const StaticModels::Elements::AudioSink *, uint16_t> &ranks)
+        std::unordered_map<const StaticModels::Elements::AudioSink *,
+                           std::pair<uint16_t, std::string>> &ranks)
 {
     const auto *sink = device_model->get_audio_sink(p.back().first->get_name());
     const auto &r(ranks.find(sink));
     if(r != ranks.end())
-        return r->second;
-
-    uint16_t rank;
+        return &r->second;
 
     if(sink == nullptr)
-        rank = ClientPlugin::Roon::Cache::INVALID_RANK;
-    else
     {
-        const auto it(sink->original_definition_.find("roon"));
-        if(it == sink->original_definition_.end())
-            rank = ClientPlugin::Roon::Cache::INVALID_RANK;
-        else
-            rank = StaticModels::Utils::get<uint16_t>(
-                        *it, "rank",
-                        uint16_t(ClientPlugin::Roon::Cache::INVALID_RANK));
+        ranks.emplace(sink, std::make_pair(ClientPlugin::Roon::Cache::INVALID_RANK, ""));
+        return nullptr;
     }
 
-    ranks[sink] = rank;
-    return rank;
+    const auto it(sink->original_definition_.find("roon"));
+    if(it == sink->original_definition_.end())
+    {
+        ranks.emplace(sink, std::make_pair(ClientPlugin::Roon::Cache::INVALID_RANK, ""));
+        return nullptr;
+    }
+
+    auto rank(StaticModels::Utils::get<uint16_t>(*it, "rank",
+                        uint16_t(ClientPlugin::Roon::Cache::INVALID_RANK)));
+    auto output_method(StaticModels::Utils::get<std::string>(*it, "method", ""));
+
+    if(output_method.empty())
+        BUG("Roon output method undefined for sink %s in model for %s",
+            sink->id_.c_str(), device_model->name_.c_str());
+
+    return &ranks.emplace(sink, std::make_pair(rank, std::move(output_method)))
+                .first->second;
 }
 
 static nlohmann::json
@@ -465,7 +474,7 @@ compute_sorted_result(const ConfigStore::DeviceContext &dev,
                       const StaticModels::DeviceModel *device_model,
                       ClientPlugin::Roon::Cache &cache,
                       std::unordered_map<const StaticModels::Elements::AudioSink *,
-                                         uint16_t> &ranks)
+                                         std::pair<uint16_t, std::string>> &ranks)
 {
     if(device_model == nullptr)
         return nullptr;
@@ -477,7 +486,8 @@ compute_sorted_result(const ConfigStore::DeviceContext &dev,
         (const auto &active_path)
         {
             if(!cache.put_path(active_path,
-                               determine_path_rank(active_path, device_model, ranks)))
+                               determine_path_rank_and_output_method(
+                                    active_path, device_model, ranks)))
                 return true;
 
             for(const auto &elem : active_path)
@@ -508,6 +518,14 @@ compute_sorted_result(const ConfigStore::DeviceContext &dev,
                     cache.append_fragment(std::move(name), std::move(it.second));
                 }
             }
+
+            nlohmann::json output_method =
+            {
+                { "type", "output" },
+                { "quality", "lossless" },
+                { "method", cache.get_output_method_id() },
+            };
+            output.emplace_back(std::move(output_method));
 
             return true;
         });

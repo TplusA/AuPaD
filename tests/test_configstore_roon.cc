@@ -239,7 +239,8 @@ TEST_CASE_FIXTURE(Fixture, "Settings update for CALA CDR")
             { "type": "eq",  "sub_type": "mid",                 "quality": "enhanced", "gain": 0.5 },
             { "type": "t+a", "sub_type": "contour_presence",    "quality": "enhanced", "gain": 2.0 },
             { "type": "t+a", "sub_type": "contour_fundamental", "quality": "enhanced", "gain": -1.0 },
-            { "type": "t+a", "sub_type": "virtual_surround"   , "quality": "enhanced" }
+            { "type": "t+a", "sub_type": "virtual_surround",    "quality": "enhanced" },
+            { "type": "output", "method": "speakers",           "quality": "lossless" }
         ]
     )";
 

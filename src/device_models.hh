@@ -57,8 +57,10 @@ class DeviceModelsDatabase
  */
 class DeviceModel
 {
+  public:
+    const std::string name_;
+
   private:
-    std::string name_;
     std::unordered_map<std::string, std::unique_ptr<Elements::Element>> elements_;
     SignalPaths::Appliance signal_path_;
 

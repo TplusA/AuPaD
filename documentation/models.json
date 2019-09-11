@@ -18,8 +18,8 @@
                 { "id": "usb_front",    "parent": "strbo_i2s" }
             ],
             "audio_sinks": [
-                { "id": "analog_line_out", "roon": { "rank": 1 } },
-                { "id": "digital_out", "roon": { "rank": 0 } }
+                { "id": "analog_line_out", "roon": { "rank": 1, "method": "analog" } },
+                { "id": "digital_out", "roon": { "rank": 0, "method": "digital" } }
             ],
             "elements": [
                 {
@@ -253,7 +253,7 @@
                 { "id": "recorder_in" }
             ],
             "audio_sinks": [
-                { "id": "speaker_out", "roon": { "rank": 0 } },
+                { "id": "speaker_out", "roon": { "rank": 0, "method": "speakers" } },
                 { "id": "pre_out" },
                 { "id": "record_out" }
             ],
@@ -543,10 +543,10 @@
             ],
             "audio_sinks": [
                 { "id": "digital_out" },
-                { "id": "speaker_out", "roon": { "rank": 0 } },
+                { "id": "speaker_out", "roon": { "rank": 0, "method": "speakers" } },
                 { "id": "subwoofer_out" },
                 { "id": "analog_line_out" },
-                { "id": "headphone_out", "roon": { "rank": 1 } }
+                { "id": "headphone_out", "roon": { "rank": 1, "method": "headphones" } }
             ],
             "elements": [
                 {
