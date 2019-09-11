@@ -121,6 +121,75 @@ class Fixture
     }
 };
 
+TEST_CASE_FIXTURE(Fixture, "Copy properties are resolved when asked to")
+{
+    if(!models.load("test_models.json", true))
+        models.load("tests/test_models.json");
+
+    static const std::array<const std::string, 6> props
+    {
+        "audio_signal_paths", "audio_sinks", "audio_sources",
+        "elements", "signal_types", "usb_connectors",
+    };
+
+    /* make reasonably sure that CalaSR and CalaBerbel are indeed copied from
+     * CalaCDR */
+    const auto &cala_cdr_before(models.get_device_model_definition("CalaCDR"));
+    REQUIRE(cala_cdr_before.find("copy_properties") == cala_cdr_before.end());
+
+    const auto &cala_sr_before(models.get_device_model_definition("CalaSR"));
+    REQUIRE(cala_sr_before.find("copy_properties") != cala_sr_before.end());
+
+    const auto &cala_bb_before(models.get_device_model_definition("CalaBerbel"));
+    REQUIRE(cala_bb_before.find("copy_properties") != cala_bb_before.end());
+
+    for(const auto &p : props)
+    {
+        REQUIRE(cala_cdr_before.find(p) != cala_cdr_before.end());
+        REQUIRE(cala_sr_before.find(p) == cala_sr_before.end());
+
+        if(p != "usb_connectors")
+            REQUIRE(cala_bb_before.find(p) == cala_bb_before.end());
+    }
+
+    /* copy */
+    models.flatten();
+
+    /* check if the properties have been copied */
+    const auto &cala_cdr(models.get_device_model_definition("CalaCDR"));
+    REQUIRE(cala_cdr.find("copy_properties") == cala_cdr.end());
+
+    const auto &cala_sr(models.get_device_model_definition("CalaSR"));
+    REQUIRE(cala_sr.find("copy_properties") == cala_sr.end());
+
+    const auto &cala_bb(models.get_device_model_definition("CalaBerbel"));
+    REQUIRE(cala_bb.find("copy_properties") == cala_bb.end());
+
+    for(const auto &p : props)
+    {
+        REQUIRE(cala_sr.find(p) != cala_sr.end());
+
+        const auto diff_sr(nlohmann::json::diff(cala_sr[p], cala_cdr[p]));
+        if(!diff_sr.empty())
+        {
+            MESSAGE("Diff: " << diff_sr);
+            CHECK(cala_sr[p] == cala_cdr[p]);
+        }
+
+        REQUIRE(cala_bb.find(p) != cala_bb.end());
+
+        const auto diff_bb(nlohmann::json::diff(cala_bb[p], cala_cdr[p]));
+
+        if(p == "usb_connectors")
+            CHECK(!diff_bb.empty());
+        else if(!diff_bb.empty())
+        {
+            MESSAGE("Diff: " << diff_bb);
+            CHECK(cala_bb[p] == cala_cdr[p]);
+        }
+    }
+}
+
 TEST_CASE_FIXTURE(Fixture, "Newly created configuration store is empty")
 {
     expect_equal(nlohmann::json({}));

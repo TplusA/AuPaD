@@ -382,6 +382,7 @@ int main(int argc, char *argv[])
 
     static StaticModels::DeviceModelsDatabase models_database;
     models_database.load(parameters.device_models_file_);
+    models_database.flatten();
 
     static ConfigStore::Settings settings(models_database);
 

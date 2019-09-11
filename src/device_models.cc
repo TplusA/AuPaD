@@ -73,6 +73,73 @@ bool StaticModels::DeviceModelsDatabase::load(const char *config,
                    { msg_error(0, LOG_ERR, msg, config); });
 }
 
+static void flatten_device(const std::string &device_name, std::set<std::string> &seen,
+                           nlohmann::json &device, nlohmann::json &all_devices);
+
+static void flatten_device_recursively(const std::string &src_name,
+                                       nlohmann::json &all_devices,
+                                       std::set<std::string> seen)
+{
+    if(seen.find(src_name) != seen.end())
+        Error() << "Cyclic reference to " << src_name;
+
+    seen.insert(src_name);
+
+    nlohmann::json &src_device(all_devices.at(src_name));
+
+    if(src_device.find("copy_properties") != src_device.end())
+        flatten_device(src_name, seen, src_device, all_devices);
+
+    seen.erase(src_name);
+}
+
+static void flatten_device(const std::string &device_name, std::set<std::string> &seen,
+                           nlohmann::json &device, nlohmann::json &all_devices)
+{
+    const auto &copy_spec(device["copy_properties"]);
+    const bool copy_all_props = copy_spec.find("all") != copy_spec.end();
+
+    if(copy_all_props && copy_spec.size() > 1)
+        Error() << "Cannot copy \"all\" *and* from individual fields for "
+                << device_name;
+
+    if(copy_all_props)
+    {
+        const auto &src_name(copy_spec["all"].get_ref<const std::string &>());
+        flatten_device_recursively(src_name, all_devices, seen);
+
+        for(const auto &kv : all_devices[src_name].items())
+            device[kv.key()] = kv.value();
+    }
+    else
+    {
+        for(const auto &kv : copy_spec.items())
+            flatten_device_recursively(kv.value().get_ref<const std::string &>(),
+                                       all_devices, seen);
+
+        for(const auto &kv : copy_spec.items())
+            device[kv.key()] =
+                all_devices[kv.value().get_ref<const std::string &>()].at(kv.key());
+    }
+
+    device.erase("copy_properties");
+}
+
+void StaticModels::DeviceModelsDatabase::flatten()
+{
+    if(config_data_.find("all_devices") == config_data_.end())
+        return;
+
+    for(auto &device : config_data_["all_devices"].items())
+    {
+        if(device.value().find("copy_properties") == device.value().end())
+            continue;
+
+        std::set<std::string> seen { device.key() };
+        flatten_device(device.key(), seen, device.value(), config_data_["all_devices"]);
+    }
+}
+
 const nlohmann::json &
 StaticModels::DeviceModelsDatabase::get_device_model_definition(const std::string &device_id) const
 {
