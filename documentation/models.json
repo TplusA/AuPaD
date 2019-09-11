@@ -633,8 +633,13 @@
                                     },
                                     "value_name": "gain",
                                     "value_mapping": {
-                                        "type": "direct",
-                                        "value_type": "d"
+                                        "type": "select",
+                                        "value_type": "d",
+                                        "select": "dsp@tone_control_enable",
+                                        "mapping_table": {
+                                            "on":  { "type": "direct" },
+                                            "off": { "type": "suppress" }
+                                        }
                                     }
                                 }
                             },
@@ -653,8 +658,13 @@
                                     },
                                     "value_name": "gain",
                                     "value_mapping": {
-                                        "type": "direct",
-                                        "value_type": "d"
+                                        "type": "select",
+                                        "value_type": "d",
+                                        "select": "dsp@tone_control_enable",
+                                        "mapping_table": {
+                                            "on":  { "type": "direct" },
+                                            "off": { "type": "suppress" }
+                                        }
                                     }
                                 }
                             },
@@ -673,8 +683,13 @@
                                     },
                                     "value_name": "gain",
                                     "value_mapping": {
-                                        "type": "direct",
-                                        "value_type": "d"
+                                        "type": "select",
+                                        "value_type": "d",
+                                        "select": "dsp@tone_control_enable",
+                                        "mapping_table": {
+                                            "on":  { "type": "direct" },
+                                            "off": { "type": "suppress" }
+                                        }
                                     }
                                 }
                             },

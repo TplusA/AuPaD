@@ -67,6 +67,8 @@ class DeviceContext
     bool for_each_signal_path(
             bool is_root_device,
             const ModelCompliant::SignalPathTracker::EnumerateCallbackFn &apply) const;
+    const Value *get_control_value(const std::string &element_id,
+                                   const std::string &control_id) const;
 };
 
 /*!

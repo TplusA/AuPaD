@@ -1223,7 +1223,7 @@ const StaticModels::DeviceModel *ConfigStore::DeviceContext::get_model() const
 void ConfigStore::DeviceContext::for_each_setting(const std::string &element,
                                                   const SettingReportFn &apply) const
 {
-    const auto it(device_.get_elements().find(element));
+    const auto &it(device_.get_elements().find(element));
     if(it == device_.get_elements().end())
         return;
 
@@ -1241,4 +1241,19 @@ bool ConfigStore::DeviceContext::for_each_signal_path(
     return sp != nullptr
         ? sp->enumerate_active_signal_paths(apply, is_root_device)
         : false;
+}
+
+const ConfigStore::Value *
+ConfigStore::DeviceContext::get_control_value(const std::string &element_id,
+                                              const std::string &control_id) const
+{
+    const auto &elem(device_.get_elements().find(element_id));
+    if(elem == device_.get_elements().end())
+        return nullptr;
+
+    const auto &val(elem->second.get_values().find(control_id));
+    if(val == elem->second.get_values().end())
+        return nullptr;
+
+    return &val->second;
 }

@@ -233,14 +233,11 @@ map_value_to_range(const std::string &name, const ConfigStore::Value &value,
 }
 
 static std::pair<nlohmann::json, AddResult>
-map_value(const std::string &name, const ConfigStore::Value &value,
-          const StaticModels::Elements::Control &ctrl,
-          const nlohmann::json &mapping)
+map_value_primitive(const std::string &name, const ConfigStore::Value &value,
+                    const StaticModels::Elements::Control &ctrl,
+                    const nlohmann::json &mapping, const nlohmann::json &mapping_type,
+                    ConfigStore::ValueType target_type)
 {
-    const auto &mapping_type = mapping.at("type");
-    const auto &target_type_code = mapping.at("value_type").get<std::string>();
-    const auto target_type = ConfigStore::Value::type_code_to_type(target_type_code);
-
     if(mapping_type == "direct")
         return std::make_pair(value.get_as(target_type), AddResult::ADDED);
 
@@ -251,15 +248,60 @@ map_value(const std::string &name, const ConfigStore::Value &value,
                 dynamic_cast<const StaticModels::Elements::Range *>(&ctrl),
                 mapping, target_type);
 
+    if(mapping_type == "suppress")
+        return std::make_pair(nlohmann::json(), AddResult::IGNORED);
+
     msg_error(0, LOG_NOTICE,
               "Unknown value mapping type \"%s\" for control %s",
               mapping_type.get<std::string>().c_str(), name.c_str());
     return std::make_pair(nlohmann::json(), AddResult::IGNORED);
 }
 
+static std::pair<nlohmann::json, AddResult>
+map_value(const ConfigStore::DeviceContext &dev,
+          const std::string &name, const ConfigStore::Value &value,
+          const StaticModels::Elements::Control &ctrl,
+          const nlohmann::json &mapping)
+{
+    const auto &mapping_type = mapping.at("type");
+    const auto &target_type_code = mapping.at("value_type").get<std::string>();
+    const auto target_type = ConfigStore::Value::type_code_to_type(target_type_code);
+
+    if(mapping_type != "select")
+        return map_value_primitive(name, value, ctrl, mapping,
+                                   mapping_type, target_type);
+
+    /* type of mapping depends on some control's value, so we match the current
+     * value of the specified control against the given table of mappings */
+    const auto spec(StaticModels::Utils::split_mapping_spec(
+                        mapping.at("select").get<std::string>()));
+    const StaticModels::Elements::Control *const selector_control =
+        dev.get_model()->get_control_by_name(std::get<0>(spec), std::get<1>(spec));
+    const ConfigStore::Value *const selector_value =
+        dev.get_control_value(std::get<0>(spec), std::get<1>(spec));
+
+    const unsigned int sel_index =
+        selector_control != nullptr && selector_value != nullptr
+        ? selector_control->to_selector_index(*selector_value)
+        : std::numeric_limits<unsigned int>::max();
+
+    if(sel_index != std::numeric_limits<unsigned int>::max())
+    {
+        const auto &mapping_table(mapping.at("mapping_table"));
+        const auto &it(mapping_table.find(
+                        selector_control->index_to_choice_string(sel_index)));
+
+        if(it != mapping_table.end())
+            return map_value_primitive(name, value, ctrl, mapping,
+                                       it->at("type"), target_type);
+    }
+
+    return std::make_pair(nlohmann::json(), AddResult::IGNORED);
+}
+
 static AddResult
-process_value_entry(const std::string &name,
-                    const ConfigStore::Value &value,
+process_value_entry(const ConfigStore::DeviceContext &dev,
+                    const std::string &name, const ConfigStore::Value &value,
                     const StaticModels::Elements::Control &ctrl,
                     const nlohmann::json &roon_conversion,
                     const ProcessValueFn &process_fn)
@@ -292,7 +334,7 @@ process_value_entry(const std::string &name,
         return AddResult::NEUTRAL;
     }
 
-    auto mapped(map_value(name, value, ctrl, *vm));
+    auto mapped(map_value(dev, name, value, ctrl, *vm));
 
     switch(mapped.second)
     {
@@ -315,8 +357,8 @@ process_value_entry(const std::string &name,
 }
 
 static AddResult
-process_entry(const std::string &name,
-              const ConfigStore::Value &value,
+process_entry(const ConfigStore::DeviceContext &dev,
+              const std::string &name, const ConfigStore::Value &value,
               const StaticModels::Elements::Control &ctrl,
               const nlohmann::json &roon_conversion,
               const ProcessValueFn &process_fn)
@@ -324,14 +366,16 @@ process_entry(const std::string &name,
     if(const auto *on_off = dynamic_cast<const StaticModels::Elements::OnOff *>(&ctrl))
         return process_flag_entry(value, *on_off, process_fn);
     else
-        return process_value_entry(name, value, ctrl, roon_conversion, process_fn);
+        return process_value_entry(dev, name, value, ctrl,
+                                   roon_conversion, process_fn);
 }
 
 using RankedEntries =
     std::map<unsigned int,
              std::pair<nlohmann::json, const StaticModels::Elements::Control *>>;
 
-static bool add_entry_for_name(const std::string &name,
+static bool add_entry_for_name(const ConfigStore::DeviceContext &dev,
+                               const std::string &name,
                                const ConfigStore::Value &value,
                                const StaticModels::Elements::Control &ctrl,
                                RankedEntries &ranked_entries)
@@ -352,7 +396,7 @@ static bool add_entry_for_name(const std::string &name,
 
     try
     {
-        switch(process_entry(name, value, ctrl, *it,
+        switch(process_entry(dev, name, value, ctrl, *it,
                 [&it, &ranked_entries, &rank]
                 (nlohmann::json &&v, const std::string *key, const auto &c)
                 {
@@ -387,7 +431,8 @@ static bool add_entry_for_name(const std::string &name,
     return false;
 }
 
-static bool patch_entry_for_name(const std::string &name,
+static bool patch_entry_for_name(const ConfigStore::DeviceContext &dev,
+                                 const std::string &name,
                                  const ConfigStore::Value &value,
                                  const StaticModels::Elements::Control &ctrl,
                                  nlohmann::json &entry)
@@ -398,7 +443,7 @@ static bool patch_entry_for_name(const std::string &name,
 
     try
     {
-        switch(process_entry(name, value, ctrl, *it,
+        switch(process_entry(dev, name, value, ctrl, *it,
                 [&it, &entry]
                 (nlohmann::json &&v, const std::string *key, const auto &c)
                 {
@@ -495,7 +540,7 @@ compute_sorted_result(const ConfigStore::DeviceContext &dev,
                 RankedEntries ranked_entries;
 
                 dev.for_each_setting(elem.first->get_name(),
-                    [&device_model, &ranked_entries]
+                    [&device_model, &dev, &ranked_entries]
                     (const std::string &element_name, const std::string &value_name,
                      const ConfigStore::Value &value)
                     {
@@ -505,7 +550,7 @@ compute_sorted_result(const ConfigStore::DeviceContext &dev,
                             return true;
 
                         const auto name("self." + element_name + '.' + value_name);
-                        add_entry_for_name(name, value, *ctrl, ranked_entries);
+                        add_entry_for_name(dev, name, value, *ctrl, ranked_entries);
                         return true;
                     });
 
@@ -606,10 +651,9 @@ void ClientPlugin::Roon::report_changes(const ConfigStore::Settings &settings,
     {
         const ConfigStore::SettingsIterator si(settings);
         const auto &dev(si.with_device("self"));
-        const auto *const device_model = dev.get_model();
 
         changes.for_each_changed_value(
-            [this, &device_model]
+            [this, &dev]
             (const auto &name, const auto &old_value, const auto &new_value)
             {
                 const auto &device_and_qualified_control(
@@ -625,7 +669,8 @@ void ClientPlugin::Roon::report_changes(const ConfigStore::Settings &settings,
                     auto &entry(cache_.lookup_fragment(
                                     std::get<1>(device_and_qualified_control)));
 
-                    patch_entry_for_name(name, new_value, *entry.second, entry.first);
+                    patch_entry_for_name(dev, name, new_value,
+                                         *entry.second, entry.first);
                 }
            });
     }
