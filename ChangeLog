@@ -1,3 +1,20 @@
+2019-09-12  Robert Tiemann  <r.tiemann@ta-hifi.de>
+
+	* Version 0.2 released.
+
+	* Models: Resolve "copy_properties" references in model definitions.
+	  This makes CalaSR and CalaBerbel work.
+
+	* Models: Allow assigning Roon output method IDs to audio sinks. This
+	  is required for Roon certification.
+
+	* Models: Support choice of value mapping for Roon depending on the
+	  setting of a control. This allows suppression or change of value
+	  mapping type, depending on values of a control (currently used for
+	  tone control enable/disable).
+
+	* Documentation: Mention DCP register 82 and the AuPaL compiler.
+
 2019-06-27  Robert Tiemann  <r.tiemann@ta-hifi.de>
 
 	* Version 0.1 released.
