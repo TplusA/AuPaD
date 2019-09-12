@@ -408,12 +408,13 @@ class Device
         get_element(element_id).unset_values(old_values);
 
         if(current_signal_path_ != nullptr)
-            for(const auto &v : old_values)
-                if(model_->has_selector(element_id, v.first))
-                {
-                    current_signal_path_->floating(element_id);
-                    return;
-                }
+            if(std::any_of(old_values.begin(), old_values.end(),
+                    [this, &element_id] (const auto &v)
+                    { return model_->has_selector(element_id, v.first); }))
+            {
+                current_signal_path_->floating(element_id);
+                return;
+            }
     }
 
     void add_connection(const std::string &sink_name,

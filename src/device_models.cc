@@ -310,6 +310,7 @@ get_io_mappings_from_model(const nlohmann::json &model,
                     << "Use of non-switchable element \"" << std::get<0>(spec)
                     << "\" in I/O mapping of device \"" << device_name << "\"";
 
+            // cppcheck-suppress nullPointerRedundantCheck
             if(!ielem->contains_control(std::get<1>(spec)))
                 Error()
                     << "Use of undefined control \"" << std::get<0>(spec)
@@ -630,6 +631,7 @@ make_switching_element(const StaticModels::Elements::Internal &element,
         if(table == nullptr)
             Error() << "No mapping table given for I/O mapping for element \""
                     << element.id_ << "\"";
+        // cppcheck-suppress nullPointerRedundantCheck
         return make_table_element(element, selector, *table);
     }
     else
