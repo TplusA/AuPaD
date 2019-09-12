@@ -48,6 +48,7 @@ class DeviceModelsDatabase
 
     bool load(const std::string &config, bool suppress_error = false);
     bool load(const char *config, bool suppress_error = false);
+    void flatten();
     const nlohmann::json &get_device_model_definition(const std::string &device_id) const;
 };
 
@@ -56,8 +57,10 @@ class DeviceModelsDatabase
  */
 class DeviceModel
 {
+  public:
+    const std::string name_;
+
   private:
-    std::string name_;
     std::unordered_map<std::string, std::unique_ptr<Elements::Element>> elements_;
     SignalPaths::Appliance signal_path_;
 

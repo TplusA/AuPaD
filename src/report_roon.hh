@@ -58,6 +58,7 @@ class Roon: public Plugin
       private:
         ModelCompliant::SignalPathTracker::ActivePath path_;
         uint16_t path_rank_;
+        std::string path_output_method_;
         std::vector<std::pair<nlohmann::json,
                               const StaticModels::Elements::Control *>>
             reported_fragments_;
@@ -78,6 +79,7 @@ class Roon: public Plugin
             const bool result = !path_.empty();
             path_.clear();
             path_rank_ = INVALID_RANK;
+            path_output_method_.clear();
             reported_fragments_.clear();
             elem_to_frag_index_.clear();
             return result;
@@ -86,11 +88,16 @@ class Roon: public Plugin
         bool empty() const { return path_.empty(); }
 
         bool put_path(const ModelCompliant::SignalPathTracker::ActivePath &path,
-                      uint16_t path_rank)
+                      const std::pair<uint16_t, std::string> *path_rank_and_method)
         {
-            if(path_rank >= path_rank_)
+            if(path_rank_and_method == nullptr)
+                return false;
+
+            const auto &rm(*path_rank_and_method);
+
+            if(rm.first >= path_rank_)
             {
-                if(path_rank == path_rank_ && path_rank != INVALID_RANK)
+                if(rm.first == path_rank_ && rm.first != INVALID_RANK)
                     msg_error(0, LOG_WARNING,
                               "There are multiple equally ranked signal paths "
                               "(reporting only one of them to Roon)");
@@ -99,13 +106,16 @@ class Roon: public Plugin
             }
 
             path_ = path;
-            path_rank_ = path_rank;
+            path_rank_ = rm.first;
+            path_output_method_ = get_checked_output_method(rm.second);
             reported_fragments_.clear();
             elem_to_frag_index_.clear();
             return true;
         }
 
         const auto &get_path() const { return path_; }
+
+        const std::string &get_output_method_id() const { return path_output_method_; }
 
         void append_fragment(
                 std::string &&element_name,
@@ -128,12 +138,32 @@ class Roon: public Plugin
         {
             return reported_fragments_.at(elem_to_frag_index_.at(element_name));
         }
+
+      private:
+        static const std::string &get_checked_output_method(const std::string &method)
+        {
+            static const std::set<std::string> valid_methods
+            {
+                "aes", "alsa", "analog", "analog_digital", "asio",
+                "digital", "headphones", "i2s", "other", "speakers", "usb",
+            };
+
+            if(valid_methods.find(method) != valid_methods.end())
+                return method;
+
+            BUG("Invalid Roon output method \"%s\" in audio path sink "
+                "(replaced by \"other\")", method.c_str());
+
+            static const std::string fallback("other");
+            return fallback;
+        };
     };
 
   private:
     const EmitSignalPathFn emit_audio_signal_path_fn_;
     mutable Cache cache_;
-    mutable std::unordered_map<const StaticModels::Elements::AudioSink *, uint16_t> ranks_;
+    mutable std::unordered_map<const StaticModels::Elements::AudioSink *,
+                               std::pair<uint16_t, std::string>> ranks_;
 
   public:
     Roon(const Roon &) = delete;

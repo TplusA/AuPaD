@@ -71,6 +71,7 @@ class Control
         std::function<void(unsigned int idx, const std::string &choice)>;
     virtual void for_each_choice(const ForEachChoiceFn &apply) const = 0;
     virtual unsigned int to_selector_index(const ConfigStore::Value &value) const = 0;
+    virtual const std::string &index_to_choice_string(unsigned int idx) const = 0;
 
     const nlohmann::json &get_original_definition() const
     {
@@ -156,6 +157,12 @@ class Choice: public Control
 
         const auto &s(value.get_value().get<std::string>());
         return choice_to_index_.at(s);
+    }
+
+    const std::string &index_to_choice_string(unsigned int idx) const
+        final override
+    {
+        return choices_.at(idx);
     }
 
   private:
@@ -255,6 +262,12 @@ class Range: public Control
         return std::numeric_limits<unsigned int>::max();
     }
 
+    const std::string &index_to_choice_string(unsigned int idx) const
+        final override
+    {
+        Error() << "Cannot convert range index to string";
+    }
+
     const ConfigStore::Value &get_min() const { return min_; }
     const ConfigStore::Value &get_max() const { return max_; }
 };
@@ -312,7 +325,6 @@ class OnOff: public Control
     unsigned int to_selector_index(const ConfigStore::Value &value) const
         final override
     {
-
         if(value.is_of_type(ConfigStore::ValueType::VT_BOOL))
             return value.get_value().get<bool>() ? 1 : 0;
 
@@ -329,6 +341,13 @@ class OnOff: public Control
         }
 
         Error() << "Selector values for on_off must be boolean or string";
+    }
+
+    const std::string &index_to_choice_string(unsigned int idx) const
+        final override
+    {
+        static const std::array<std::string, 2> values { "off", "on" };
+        return values.at(idx);
     }
 
     bool get_neutral_value() const { return neutral_setting_; }

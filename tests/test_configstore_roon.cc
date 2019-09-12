@@ -239,11 +239,127 @@ TEST_CASE_FIXTURE(Fixture, "Settings update for CALA CDR")
             { "type": "eq",  "sub_type": "mid",                 "quality": "enhanced", "gain": 0.5 },
             { "type": "t+a", "sub_type": "contour_presence",    "quality": "enhanced", "gain": 2.0 },
             { "type": "t+a", "sub_type": "contour_fundamental", "quality": "enhanced", "gain": -1.0 },
-            { "type": "t+a", "sub_type": "virtual_surround"   , "quality": "enhanced" }
+            { "type": "t+a", "sub_type": "virtual_surround",    "quality": "enhanced" },
+            { "type": "output", "method": "speakers",           "quality": "lossless" }
         ]
     )";
 
     roon_update.expect(expected_update);
+    pm.report_changes(settings, changes);
+}
+
+TEST_CASE_FIXTURE(Fixture, "Tone control override in CALA CDR")
+{
+    const std::string init_with_tone_control_enabled = R"(
+        {
+            "audio_path_changes": [
+                {
+                    "op": "add_instance", "name": "self", "id": "CalaCDR"
+                },
+                {
+                    "op": "set", "element": "self.dsp",
+                    "kv": {
+                        "volume":                  { "type": "y", "value": 60 },
+                        "balance":                 { "type": "Y", "value": 10 },
+                        "loudness_enable":         { "type": "b", "value": true },
+                        "tone_control_enable":     { "type": "b", "value": true },
+                        "treble":                  { "type": "Y", "value": 1 },
+                        "mid":                     { "type": "D", "value": 0.5 },
+                        "bass":                    { "type": "Y", "value": 1 },
+                        "contour_presence":        { "type": "Y", "value": 2 },
+                        "contour_ft":              { "type": "Y", "value": -1 },
+                        "virtual_surround":        { "type": "b", "value": true }
+                    }
+                },
+                {
+                    "op": "set", "element": "self.input_select",
+                    "kv": { "sel": { "type": "s", "value": "strbo" } }
+                },
+                {
+                    "op": "set", "element": "self.analog_or_digital",
+                    "kv": { "is_digital": { "type": "b", "value": true } }
+                },
+                {
+                    "op": "set", "element": "self.amp",
+                    "kv": { "enable": { "type": "b", "value": true } }
+                }
+            ]
+        })";
+    settings.update(init_with_tone_control_enabled);
+
+    ConfigStore::Changes changes;
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_path_after_init = R"(
+        [
+            { "type": "digital_volume",                         "quality": "high",     "gain": 60.0 },
+            { "type": "balance",                                "quality": "lossless", "value": 0.11764705882352944 },
+            { "type": "t+a", "sub_type": "loudness",            "quality": "enhanced" },
+            { "type": "eq",  "sub_type": "bass",                "quality": "enhanced", "gain": 1.0 },
+            { "type": "eq",  "sub_type": "mid",                 "quality": "enhanced", "gain": 0.5 },
+            { "type": "eq",  "sub_type": "treble",              "quality": "enhanced", "gain": 1.0 },
+            { "type": "t+a", "sub_type": "contour_presence",    "quality": "enhanced", "gain": 2.0 },
+            { "type": "t+a", "sub_type": "contour_fundamental", "quality": "enhanced", "gain": -1.0 },
+            { "type": "t+a", "sub_type": "virtual_surround",    "quality": "enhanced" },
+            { "type": "output", "method": "speakers",           "quality": "lossless" }
+        ]
+    )";
+
+    roon_update.expect(expected_path_after_init);
+    pm.report_changes(settings, changes);
+    roon_update.check();
+
+    /* switching off tone control suppresses equalizer settings */
+    const std::string disable_tone_control = R"(
+        {
+            "audio_path_changes": [{
+                "op": "update", "element": "self.dsp",
+                "kv": { "tone_control_enable": { "type": "b", "value": false } }
+            }]
+        })";
+    settings.update(disable_tone_control);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_path_after_tone_control_disable = R"(
+        [
+            { "type": "digital_volume",                         "quality": "high",     "gain": 60.0 },
+            { "type": "balance",                                "quality": "lossless", "value": 0.11764705882352944 },
+            { "type": "t+a", "sub_type": "loudness",            "quality": "enhanced" },
+            { "type": "t+a", "sub_type": "contour_presence",    "quality": "enhanced", "gain": 2.0 },
+            { "type": "t+a", "sub_type": "contour_fundamental", "quality": "enhanced", "gain": -1.0 },
+            { "type": "t+a", "sub_type": "virtual_surround",    "quality": "enhanced" },
+            { "type": "output", "method": "speakers",           "quality": "lossless" }
+        ]
+    )";
+
+    roon_update.expect(expected_path_after_tone_control_disable);
+    pm.report_changes(settings, changes);
+    roon_update.check();
+
+    /* switching tone control back on emits path including equalizer settings
+     * with previously set values */
+    const std::string enable_tone_control = R"(
+        {
+            "audio_path_changes": [{
+                "op": "update", "element": "self.dsp",
+                "kv": { "tone_control_enable": { "type": "b", "value": true } }
+            }]
+        })";
+    settings.update(enable_tone_control);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    roon_update.expect(expected_path_after_init);
     pm.report_changes(settings, changes);
 }
 
