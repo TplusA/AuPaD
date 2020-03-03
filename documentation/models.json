@@ -363,10 +363,10 @@
                     }
                 },
                 {
-                    "id": "loudless",
+                    "id": "loudness",
                     "element": {
                         "label": "Loudness Level",
-                        "description": "Controls the loudless level",
+                        "description": "Controls the loudness level",
                         "controls": {
                             "level": {
                                 "type": "range", "value_type": "Y",
@@ -424,9 +424,9 @@
                         "tone_ctl_select.out0": "tone_ctl",
                         "tone_ctl_select.out1": "loudness_select",
                         "tone_ctl": "loudness_select",
-                        "loudness_select.out0": "loudless",
+                        "loudness_select.out0": "loudness",
                         "loudness_select.out1": "eq_select",
-                        "loudless": "eq_select",
+                        "loudness": "eq_select",
                         "eq_select.out0": [ "eq1", "eq2", "eq3" ],
                         "eq_select.out1": "amp",
                         "eq1": "amp",
