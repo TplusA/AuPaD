@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+# Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
 #
 # This file is part of AuPaD.
 #
@@ -35,6 +35,7 @@ aupad_SOURCES = \
     element.hh element_controls.hh \
     dbus.hh dbus.cc debug_levels.cc \
     monitor_manager.cc monitor_manager.hh \
+    backtrace.h backtrace.c \
     messages.h messages.c messages_glib.h messages_glib.c os.h os.c
 aupad_LDADD = $(AUPAD_DEPENDENCIES_LIBS) $(noinst_LTLIBRARIES)
 

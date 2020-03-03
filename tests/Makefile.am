@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+# Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
 #
 # This file is part of AuPaD.
 #
@@ -46,6 +46,7 @@ test_configstore_SOURCES = \
     test_configstore.cc \
     mock_os.hh mock_os.cc \
     mock_messages.hh mock_messages.cc \
+    mock_backtrace.hh mock_backtrace.cc \
     mock_expectation.hh
 test_configstore_LDADD = \
     libtestrunner.la \
@@ -58,6 +59,7 @@ test_configstore_roon_SOURCES = \
     test_configstore_roon.cc \
     mock_os.hh mock_os.cc \
     mock_messages.hh mock_messages.cc \
+    mock_backtrace.hh mock_backtrace.cc \
     mock_expectation.hh
 test_configstore_roon_LDADD = \
     libtestrunner.la \
@@ -71,6 +73,7 @@ test_signal_paths_SOURCES = \
     test_signal_paths.cc \
     mock_os.hh mock_os.cc \
     mock_messages.hh mock_messages.cc \
+    mock_backtrace.hh mock_backtrace.cc \
     mock_expectation.hh
 test_signal_paths_LDADD = \
     libtestrunner.la \
