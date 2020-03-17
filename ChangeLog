@@ -1,3 +1,16 @@
+2020-08-21  Robert Tiemann  <r.tiemann@ta-hifi.de>
+
+	* Version 0.3 released.
+
+	* Build system: Support Meson.
+
+	* Logging: Improved some error messages during value updates.
+
+	* Unit tests: Improved error messages for unexpected log messages
+	  emitted by the implementation under test.
+
+	* Misc: Modernizations and minor fixes.
+
 2019-09-12  Robert Tiemann  <r.tiemann@ta-hifi.de>
 
 	* Version 0.2 released.
@@ -23,4 +36,4 @@
 	  and support for Roon are already included.
 
 
-Copyright 2019 T+A elektroakustik GmbH & Co. KG
+Copyright 2019, 2020 T+A elektroakustik GmbH & Co. KG
