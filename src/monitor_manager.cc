@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -24,7 +24,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "monitor_manager.hh"
-#include "dbus/aupad_dbus.hh"
+#include "dbus/de_tahifi_aupad.hh"
 
 static gboolean dbushandler_register_client(
         tdbusaupadMonitor *const object,

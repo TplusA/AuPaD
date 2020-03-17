@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -19,10 +19,10 @@
  * MA  02110-1301, USA.
  */
 
-#ifndef DEBUG_DBUS_HH
-#define DEBUG_DBUS_HH
+#ifndef DE_TAHIFI_DEBUG_HH
+#define DE_TAHIFI_DEBUG_HH
 
-#include "dbus/debug_dbus.h"
+#include "dbus/de_tahifi_debug.h"
 #include "dbus/taddybus.hh"
 
 namespace TDBus
@@ -124,4 +124,4 @@ struct SignalHandlerTraits<DebugLoggingConfigGlobalDebugLevelChanged>
 
 }
 
-#endif /* !DEBUG_DBUS_HH */
+#endif /* !DE_TAHIFI_DEBUG_HH */

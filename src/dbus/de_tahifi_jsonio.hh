@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -19,10 +19,10 @@
  * MA  02110-1301, USA.
  */
 
-#ifndef JSONIO_DBUS_HH
-#define JSONIO_DBUS_HH
+#ifndef DE_TAHIFI_JSONIO_HH
+#define DE_TAHIFI_JSONIO_HH
 
-#include "dbus/jsonio_dbus.h"
+#include "dbus/de_tahifi_jsonio.h"
 #include "dbus/taddybus.hh"
 
 namespace TDBus
@@ -221,4 +221,4 @@ struct SignalHandlerTraits<JSONEmitterObject>
 
 }
 
-#endif /* !JSONIO_DBUS_HH */
+#endif /* !DE_TAHIFI_JSONIO_HH */

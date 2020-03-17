@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -23,7 +23,7 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#include "dbus/debug_dbus.hh"
+#include "dbus/de_tahifi_debug.hh"
 
 static enum MessageVerboseLevel do_set_debug_level(const char *new_level_name)
 {
