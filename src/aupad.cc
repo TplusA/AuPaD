@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -30,7 +30,7 @@
 #include "device_models.hh"
 #include "report_roon.hh"
 #include "dbus.hh"
-#include "dbus/jsonio_dbus.hh"
+#include "dbus/de_tahifi_jsonio.hh"
 #include "monitor_manager.hh"
 #include "messages.h"
 #include "messages_glib.h"

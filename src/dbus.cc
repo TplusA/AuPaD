@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -24,8 +24,8 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "dbus.hh"
-#include "dbus/jsonio_dbus.hh"
-#include "dbus/debug_dbus.hh"
+#include "dbus/de_tahifi_jsonio.hh"
+#include "dbus/de_tahifi_debug.hh"
 
 static void handle_audio_path_request(const char *json)
 {

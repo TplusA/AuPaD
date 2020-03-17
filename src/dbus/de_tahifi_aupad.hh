@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -19,10 +19,10 @@
  * MA  02110-1301, USA.
  */
 
-#ifndef AUPAD_DBUS_HH
-#define AUPAD_DBUS_HH
+#ifndef DE_TAHIFI_AUPAD_HH
+#define DE_TAHIFI_AUPAD_HH
 
-#include "dbus/aupad_dbus.h"
+#include "dbus/de_tahifi_aupad.h"
 #include "dbus/taddybus.hh"
 
 namespace TDBus
@@ -125,4 +125,4 @@ struct MethodCallerTraits<AuPaDMonitorUnregister>
 
 }
 
-#endif /* !AUPAD_DBUS_HH */
+#endif /* !DE_TAHIFI_AUPAD_HH */
