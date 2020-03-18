@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -71,6 +71,22 @@ bool StaticModels::DeviceModelsDatabase::load(const char *config,
     return do_load(in, suppress_error, config_data_,
                    [&config] (const char *msg)
                    { msg_error(0, LOG_ERR, msg, config); });
+}
+
+bool StaticModels::DeviceModelsDatabase::loads(const std::string &js,
+                                               bool suppress_error)
+{
+    try
+    {
+        config_data_ = nlohmann::json::parse(js);
+        return true;
+    }
+    catch(const std::exception &e)
+    {
+        msg_error(0, LOG_ERR, "%s", e.what());
+        config_data_ = nlohmann::json();
+        return false;
+    }
 }
 
 static void flatten_device(const std::string &device_name, std::set<std::string> &seen,

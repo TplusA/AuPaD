@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -48,6 +48,7 @@ class DeviceModelsDatabase
 
     bool load(const std::string &config, bool suppress_error = false);
     bool load(const char *config, bool suppress_error = false);
+    bool loads(const std::string &js, bool suppress_error = false);
     void flatten();
     const nlohmann::json &get_device_model_definition(const std::string &device_id) const;
 };
