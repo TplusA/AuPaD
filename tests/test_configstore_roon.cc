@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -360,6 +360,255 @@ TEST_CASE_FIXTURE(Fixture, "Tone control override in CALA CDR")
     }
 
     roon_update.expect(expected_path_after_init);
+    pm.report_changes(settings, changes);
+}
+
+class CustomModels
+{
+  protected:
+    ClientPlugin::PluginManager pm;
+    StaticModels::DeviceModelsDatabase models;
+    ConfigStore::Settings settings;
+    std::unique_ptr<MockMessages::Mock> mock_messages;
+
+    ClientPlugin::Roon *roon_plugin;
+    RoonUpdate roon_update;
+
+    explicit CustomModels():
+        settings(models),
+        mock_messages(std::make_unique<MockMessages::Mock>()),
+        roon_plugin(nullptr)
+    {
+        MockMessages::singleton = mock_messages.get();
+
+        expect<MockMessages::MsgInfo>(mock_messages,
+                                      "Registered plugin \"Roon\"", false);
+
+        auto roon(std::make_unique<ClientPlugin::Roon>(
+            [this] (const auto &asp, const auto &extra) { roon_update.send(asp, extra); }));
+        roon->add_client();
+        roon_plugin = roon.get();
+        pm.register_plugin(std::move(roon));
+    }
+
+    ~CustomModels()
+    {
+        expect<MockMessages::MsgInfo>(mock_messages,
+                                      "Unregistered plugin \"Roon\"", false);
+        pm.shutdown();
+
+        try
+        {
+            roon_update.check();
+            mock_messages->done();
+        }
+        catch(...)
+        {
+            /* no throwing from dtors */
+        }
+
+        MockMessages::singleton = nullptr;
+    }
+
+  protected:
+    void expect_equal(const nlohmann::json &expected, const nlohmann::json &have)
+    {
+        const auto d(nlohmann::json::diff(have, expected));
+
+        if(d.empty())
+            return;
+
+        MESSAGE("Diff: " << d);
+        CHECK(have == expected);
+    }
+};
+
+TEST_CASE_FIXTURE(CustomModels,
+                  "Settings for simplest possible model with source, DSP, and sink")
+{
+    const std::string model_definition = R"(
+        {
+          "all_devices": {
+            "MyDevice": {
+              "audio_sources": [{ "id": "bluetooth" }],
+              "audio_sinks": [
+                {
+                  "id": "analog_line_out",
+                  "roon": { "rank": 0, "method": "analog" }
+                }
+              ],
+              "elements": [
+                {
+                  "id": "dsp",
+                  "element": {
+                    "controls": {
+                      "volume": {
+                        "type": "range", "value_type": "y",
+                        "min": 0, "max": 99, "step": 1, "scale": "steps",
+                        "neutral_setting": 0,
+                        "roon": {
+                          "rank": 0,
+                          "template": { "type": "digital_volume", "quality": "high" },
+                          "value_name": "gain",
+                          "value_mapping": { "type": "direct", "value_type": "d" }
+                        }
+                      },
+                      "balance": {
+                        "type": "range", "value_type": "Y",
+                        "min": -16, "max": 16, "step": 1, "scale": "steps",
+                        "neutral_setting": 0,
+                        "roon": {
+                          "rank": 1,
+                          "template": { "type": "balance", "quality": "lossless" },
+                          "value_name": "value",
+                          "value_mapping": {
+                            "type": "to_range", "value_type": "d",
+                            "from": -1.0, "to": 1.0
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "audio_signal_paths": [
+                {
+                  "connections": {
+                    "bluetooth": "dsp",
+                    "dsp": "analog_line_out"
+                  }
+                }
+              ]
+            }
+          }
+        })";
+
+    CHECK(models.loads(model_definition));
+
+    const std::string input = R"(
+        {
+          "audio_path_changes": [
+            { "op": "add_instance", "name": "self", "id": "MyDevice" },
+            {
+              "op": "set", "element": "self.dsp",
+              "kv": {
+                "volume":  { "type": "y", "value": 42 },
+                "balance": { "type": "Y", "value": -4 }
+              }
+            }
+          ]
+        })";
+    settings.update(input);
+
+    ConfigStore::Changes changes;
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+
+    const auto expected_update = R"(
+        [
+          { "type": "digital_volume", "gain": 42,         "quality": "high" },
+          { "type": "balance",        "value": -0.25,     "quality": "lossless" },
+          { "type": "output",         "method": "analog", "quality": "lossless" }
+        ]
+    )";
+
+    roon_update.expect(expected_update);
+    pm.report_changes(settings, changes);
+}
+
+TEST_CASE_FIXTURE(CustomModels, "Settings for linear model with NOP elements")
+{
+    const std::string model_definition = R"(
+        {
+          "all_devices": {
+            "MyDevice": {
+              "audio_sources": [{ "id": "bluetooth" }],
+              "audio_sinks": [
+                {
+                  "id": "analog_line_out",
+                  "roon": { "rank": 0, "method": "analog" }
+                }
+              ],
+              "elements": [
+                {
+                  "id": "dsp",
+                  "element": {
+                    "controls": {
+                      "volume": {
+                        "type": "range", "value_type": "y",
+                        "min": 0, "max": 99, "step": 1, "scale": "steps",
+                        "neutral_setting": 0,
+                        "roon": {
+                          "rank": 0,
+                          "template": { "type": "digital_volume", "quality": "high" },
+                          "value_name": "gain",
+                          "value_mapping": { "type": "direct", "value_type": "d" }
+                        }
+                      },
+                      "balance": {
+                        "type": "range", "value_type": "Y",
+                        "min": -16, "max": 16, "step": 1, "scale": "steps",
+                        "neutral_setting": 0,
+                        "roon": {
+                          "rank": 1,
+                          "template": { "type": "balance", "quality": "lossless" },
+                          "value_name": "value",
+                          "value_mapping": {
+                            "type": "to_range", "value_type": "d",
+                            "from": -1.0, "to": 1.0
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                { "id": "codec", "element": null },
+                { "id": "dac", "element": null }
+              ],
+              "audio_signal_paths": [
+                {
+                  "connections": {
+                    "bluetooth": "codec",
+                    "codec": "dsp",
+                    "dsp": "dac",
+                    "dac": "analog_line_out"
+                  }
+                }
+              ]
+            }
+          }
+        })";
+
+    CHECK(models.loads(model_definition));
+
+    const std::string input = R"(
+        {
+          "audio_path_changes": [
+            { "op": "add_instance", "name": "self", "id": "MyDevice" },
+            {
+              "op": "set", "element": "self.dsp",
+              "kv": {
+                "volume":  { "type": "y", "value": 42 },
+                "balance": { "type": "Y", "value": -4 }
+              }
+            }
+          ]
+        })";
+    settings.update(input);
+
+    ConfigStore::Changes changes;
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+
+    const auto expected_update = R"(
+        [
+          { "type": "digital_volume", "gain": 42,         "quality": "high" },
+          { "type": "balance",        "value": -0.25,     "quality": "lossless" },
+          { "type": "output",         "method": "analog", "quality": "lossless" }
+        ]
+    )";
+
+    roon_update.expect(expected_update);
     pm.report_changes(settings, changes);
 }
 
