@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -497,12 +497,26 @@ class ConfigStore::Settings::Impl
 
     const Device &get_device(const char *name) const
     {
-        return devices_.at(name);
+        try
+        {
+            return devices_.at(name);
+        }
+        catch(const std::out_of_range &)
+        {
+            ErrorBase<std::out_of_range>() << "device \"" << name << "\" is unknown";
+        }
     }
 
     const Device &get_device(const std::string &name) const
     {
-        return devices_.at(name);
+        try
+        {
+            return devices_.at(name);
+        }
+        catch(const std::out_of_range &)
+        {
+            ErrorBase<std::out_of_range>() << "device \"" << name << "\" is unknown";
+        }
     }
 
   private:

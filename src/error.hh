@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -23,29 +23,33 @@
 #define ERROR_HH
 
 #include <sstream>
+#include <exception>
 
-class Error
+template <typename ET = std::runtime_error>
+class ErrorBase
 {
   private:
     std::ostringstream os_;
 
   public:
-    Error(const Error &) = delete;
-    Error(Error &&) = default;
-    Error &operator=(const Error &) = delete;
-    Error &operator=(Error &&) = default;
+    ErrorBase(const ErrorBase &) = delete;
+    ErrorBase(ErrorBase &&) = default;
+    ErrorBase &operator=(const ErrorBase &) = delete;
+    ErrorBase &operator=(ErrorBase &&) = default;
 
-    explicit Error() = default;
+    explicit ErrorBase() = default;
 
     // cppcheck-suppress exceptThrowInDestructor
-    [[ noreturn ]] ~Error() noexcept(false) { throw std::runtime_error(os_.str()); }
+    [[ noreturn ]] ~ErrorBase() noexcept(false) { throw ET(os_.str()); }
 
     template <typename T>
-    Error &operator<<(const T &d)
+    ErrorBase &operator<<(const T &d)
     {
         os_ << d;
         return *this;
     }
 };
+
+using Error = ErrorBase<>;
 
 #endif /* !ERROR_HH */
