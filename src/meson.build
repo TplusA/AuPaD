@@ -23,7 +23,8 @@ config_h = declare_dependency(
     sources: configure_file(input: '../config.h.meson',
                             output: 'config.h',
                             configuration: config_data),
-    include_directories: '.')
+    include_directories: '.'
+)
 
 subdir('dbus')
 

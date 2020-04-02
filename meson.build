@@ -75,4 +75,5 @@ custom_target('doxygen', output: 'doxygen.stamp',
 custom_target('documentation',
     output: 'README.html', input: 'README.md',
     command: [markdown, '-o', '@OUTPUT@', '@INPUT@'],
-    install: true, install_dir: get_option('datadir') / 'doc' / PACKAGE)
+    install: true, install_dir: get_option('datadir') / 'doc' / PACKAGE
+)
