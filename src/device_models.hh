@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -86,6 +86,17 @@ class DeviceModel
     {
         for(const auto &elem : elements_)
             apply(*elem.second);
+    }
+
+    const Elements::Element *lookup_element(const std::string &element_id) const
+    {
+        const auto &elem(elements_.find(element_id));
+        return elem->second->id_ == element_id ? elem->second.get() : nullptr;
+    }
+
+    const Elements::Internal *lookup_internal_element(const std::string &element_id) const
+    {
+        return dynamic_cast<const Elements::Internal *>(lookup_element(element_id));
     }
 
     const Elements::AudioSink *get_audio_sink(const std::string &sink_name) const

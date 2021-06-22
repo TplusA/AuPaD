@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -370,65 +370,29 @@ process_entry(const ConfigStore::DeviceContext &dev,
                                    roon_conversion, process_fn);
 }
 
-using RankedEntries =
+using RankedControls =
     std::map<unsigned int,
              std::pair<nlohmann::json, const StaticModels::Elements::Control *>>;
 
-static bool add_entry_for_name(const ConfigStore::DeviceContext &dev,
-                               const std::string &name,
-                               const ConfigStore::Value &value,
-                               const StaticModels::Elements::Control &ctrl,
-                               RankedEntries &ranked_entries)
+static void add_empty_ranked_entry(const StaticModels::Elements::Internal &elem,
+                                   const StaticModels::Elements::Control &ctrl,
+                                   RankedControls &ranked_controls)
 {
     const auto it(ctrl.original_definition_.find("roon"));
     if(it == ctrl.original_definition_.end())
-        return false;
+        return;
 
     const auto rank = StaticModels::Utils::get<unsigned int>(*it, "rank", 0);
 
-    if(ranked_entries.find(rank) != ranked_entries.end())
+    if(ranked_controls.find(rank) == ranked_controls.end())
+        ranked_controls.emplace(rank, std::make_pair(nlohmann::json(), &ctrl));
+    else
     {
+        const auto name("self." + elem.id_ + '.' + ctrl.id_);
         msg_error(0, LOG_NOTICE,
                   "Duplicate Roon rank %u for element control \"%s\"",
                   rank, name.c_str());
-        return false;
     }
-
-    try
-    {
-        switch(process_entry(dev, name, value, ctrl, *it,
-                [&it, &ranked_entries, &rank]
-                (nlohmann::json &&v, const std::string *key, const auto &c)
-                {
-                    if(v != nullptr)
-                    {
-                        nlohmann::json t = it->at("template");
-
-                        if(key != nullptr)
-                            t[*key] = std::move(v);
-
-                        ranked_entries.emplace(rank, std::make_pair(std::move(t), &c));
-                    }
-                    else
-                        ranked_entries.emplace(rank, std::make_pair(std::move(v), &c));
-                }))
-        {
-          case AddResult::IGNORED:
-          case AddResult::ADDED:
-            return false;
-
-          case AddResult::NEUTRAL:
-            return true;
-        }
-    }
-    catch(...)
-    {
-        msg_error(0, LOG_NOTICE,
-                  "Failed adding entry for Roon for element control \"%s\"",
-                  name.c_str());
-    }
-
-    return false;
 }
 
 static bool patch_entry_for_name(const ConfigStore::DeviceContext &dev,
@@ -514,6 +478,112 @@ static const std::pair<uint16_t, std::string> *determine_path_rank_and_output_me
                 .first->second;
 }
 
+static RankedControls
+collect_ranked_controls(const StaticModels::DeviceModel &device_model,
+                        const std::string &element_name)
+{
+    RankedControls ranked_controls;
+
+    const auto *elem = device_model.lookup_internal_element(element_name);
+    if(elem  == nullptr)
+        return ranked_controls;
+
+    elem->for_each_control(
+        [elem, &ranked_controls]
+        (const StaticModels::Elements::Control &ctrl)
+        {
+            add_empty_ranked_entry(*elem, ctrl, ranked_controls);
+        });
+
+    return ranked_controls;
+}
+
+static void fill_cache_with_values_from_device_context(
+        const ConfigStore::DeviceContext &dev,
+        const StaticModels::DeviceModel &device_model,
+        ClientPlugin::Roon::Cache &cache)
+{
+    /* fill in the values we have in the current device context, leave the rest
+     * of the values the way they are */
+    for(const auto &elem : cache.get_path())
+    {
+        dev.for_each_setting(elem.first->get_name(),
+            [&dev, &device_model, &cache]
+            (const std::string &element_name, const std::string &value_name,
+             const ConfigStore::Value &value)
+            {
+                const auto *ctrl =
+                    device_model.get_control_by_name(element_name, value_name);
+                if(ctrl == nullptr)
+                    return true;
+
+                const auto name(element_name + '.' + value_name);
+
+                try
+                {
+                    auto &entry(cache.lookup_fragment(name));
+                    log_assert(entry.second == ctrl);
+                    patch_entry_for_name(dev, name, value,
+                                         *entry.second, entry.first);
+                }
+                catch(const std::out_of_range &)
+                {
+                    /* ignore non-existent name */
+                }
+
+                return true;
+            });
+    }
+}
+
+static void update_cache_with_values_from_device_context(
+    const ConfigStore::DeviceContext &dev,
+    const ConfigStore::Changes &changes,
+    ClientPlugin::Roon::Cache &cache)
+{
+    changes.for_each_changed_value(
+        [&dev, &cache]
+        (const auto &name, const auto &old_value, const auto &new_value)
+        {
+            const auto &device_and_qualified_control(
+                StaticModels::Utils::split_qualified_name(name));
+            if(std::get<0>(device_and_qualified_control) != "self")
+            {
+                MSG_NOT_IMPLEMENTED();
+                return;
+            }
+
+            log_assert(cache.contains(std::get<1>(device_and_qualified_control)));
+
+            if(new_value.is_of_type(ConfigStore::ValueType::VT_VOID))
+                cache.update_fragment(std::get<1>(device_and_qualified_control),
+                                       nullptr);
+            else
+            {
+                auto &entry(cache.lookup_fragment(
+                                std::get<1>(device_and_qualified_control)));
+
+                patch_entry_for_name(dev, name, new_value,
+                                     *entry.second, entry.first);
+            }
+       });
+}
+
+static nlohmann::json generate_report_from_cache(const ClientPlugin::Roon::Cache &cache)
+{
+    auto output = cache.collect_fragments();
+
+    nlohmann::json output_method =
+    {
+        { "type", "output" },
+        { "quality", "lossless" },
+        { "method", cache.get_output_method_id() },
+    };
+    output.emplace_back(std::move(output_method));
+
+    return output;
+}
+
 static nlohmann::json
 compute_sorted_result(const ConfigStore::DeviceContext &dev,
                       const StaticModels::DeviceModel *device_model,
@@ -521,61 +591,41 @@ compute_sorted_result(const ConfigStore::DeviceContext &dev,
                       std::unordered_map<const StaticModels::Elements::AudioSink *,
                                          std::pair<uint16_t, std::string>> &ranks)
 {
+    cache.clear();
+
     if(device_model == nullptr)
         return nullptr;
 
-    nlohmann::json output;
-
+    /* find active path with highest rank */
     dev.for_each_signal_path(true,
-        [&device_model, &dev, &cache, &ranks, &output]
+        [device_model, &cache, &ranks]
         (const auto &active_path)
         {
-            if(!cache.put_path(active_path,
-                               determine_path_rank_and_output_method(
-                                    active_path, device_model, ranks)))
-                return true;
-
-            for(const auto &elem : active_path)
-            {
-                RankedEntries ranked_entries;
-
-                dev.for_each_setting(elem.first->get_name(),
-                    [&device_model, &dev, &ranked_entries]
-                    (const std::string &element_name, const std::string &value_name,
-                     const ConfigStore::Value &value)
-                    {
-                        const auto *ctrl =
-                            device_model->get_control_by_name(element_name, value_name);
-                        if(ctrl == nullptr)
-                            return true;
-
-                        const auto name("self." + element_name + '.' + value_name);
-                        add_entry_for_name(dev, name, value, *ctrl, ranked_entries);
-                        return true;
-                    });
-
-                for(auto &it : ranked_entries)
-                {
-                    if(it.second.first != nullptr)
-                        output.push_back(it.second.first);
-
-                    auto name(elem.first->get_name() + '.' + it.second.second->id_);
-                    cache.append_fragment(std::move(name), std::move(it.second));
-                }
-            }
-
-            nlohmann::json output_method =
-            {
-                { "type", "output" },
-                { "quality", "lossless" },
-                { "method", cache.get_output_method_id() },
-            };
-            output.emplace_back(std::move(output_method));
-
+            cache.put_path(active_path,
+                           determine_path_rank_and_output_method(
+                                    active_path, device_model, ranks));
             return true;
         });
 
-    return output;
+    if(cache.empty())
+        return nullptr;
+
+    /* preset cache to empty JSON objects for all the values along the path
+     * according to element positions and control ranks */
+    for(const auto &elem : cache.get_path())
+    {
+        auto ranked_entries(collect_ranked_controls(*device_model,
+                                                    elem.first->get_name()));
+
+        for(auto &it : ranked_entries)
+        {
+            auto name(elem.first->get_name() + '.' + it.second.second->id_);
+            cache.append_fragment(std::move(name), std::move(it.second));
+        }
+    }
+
+    fill_cache_with_values_from_device_context(dev, *device_model, cache);
+    return generate_report_from_cache(cache);
 }
 
 static bool is_root_appliance_unchanged(const ConfigStore::Changes &changes)
@@ -651,33 +701,16 @@ void ClientPlugin::Roon::report_changes(const ConfigStore::Settings &settings,
     {
         const ConfigStore::SettingsIterator si(settings);
         const auto &dev(si.with_device("self"));
-
-        changes.for_each_changed_value(
-            [this, &dev]
-            (const auto &name, const auto &old_value, const auto &new_value)
-            {
-                const auto &device_and_qualified_control(
-                    StaticModels::Utils::split_qualified_name(name));
-                if(std::get<0>(device_and_qualified_control) != "self")
-                    return;
-
-                if(new_value.is_of_type(ConfigStore::ValueType::VT_VOID))
-                    cache_.update_fragment(std::get<1>(device_and_qualified_control),
-                                           nullptr);
-                else
-                {
-                    auto &entry(cache_.lookup_fragment(
-                                    std::get<1>(device_and_qualified_control)));
-
-                    patch_entry_for_name(dev, name, new_value,
-                                         *entry.second, entry.first);
-                }
-           });
+        update_cache_with_values_from_device_context(dev ,changes, cache_);
     }
     catch(const std::out_of_range &e)
     {
         BUG("Failed iterating device \"self\": %s", e.what());
     }
+
+    const auto output = generate_report_from_cache(cache_);
+    if(output != nullptr)
+        report = output.dump();
 
     if(!report.empty())
         emit_audio_signal_path_fn_(report, extra);
@@ -693,7 +726,6 @@ bool ClientPlugin::Roon::full_report(const ConfigStore::Settings &settings,
     try
     {
         const auto &dev(si.with_device("self"));
-        cache_.clear();
         output = compute_sorted_result(dev, dev.get_model(), cache_, ranks_);
     }
     catch(const std::out_of_range &e)

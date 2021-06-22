@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -609,6 +609,178 @@ TEST_CASE_FIXTURE(CustomModels, "Settings for linear model with NOP elements")
     )";
 
     roon_update.expect(expected_update);
+    pm.report_changes(settings, changes);
+}
+
+TEST_CASE_FIXTURE(CustomModels, "Subsequent changes of Roon-related settings")
+{
+    const std::string model_definition = R"(
+        {
+          "all_devices": {
+            "MyDevice": {
+              "audio_sources": [{ "id": "bluetooth" }],
+              "audio_sinks": [
+                {
+                  "id": "analog_line_out",
+                  "roon": { "rank": 0, "method": "analog" }
+                }
+              ],
+              "elements": [
+                {
+                  "id": "dsp",
+                  "element": {
+                    "controls": {
+                      "volume": {
+                        "type": "range", "value_type": "y",
+                        "min": 0, "max": 99, "step": 1, "scale": "steps",
+                        "neutral_setting": 0,
+                        "roon": {
+                          "rank": 0,
+                          "template": { "type": "digital_volume", "quality": "high" },
+                          "value_name": "gain",
+                          "value_mapping": { "type": "direct", "value_type": "d" }
+                        }
+                      },
+                      "balance": {
+                        "type": "range", "value_type": "Y",
+                        "min": -16, "max": 16, "step": 1, "scale": "steps",
+                        "neutral_setting": 0,
+                        "roon": {
+                          "rank": 1,
+                          "template": { "type": "balance", "quality": "lossless" },
+                          "value_name": "value",
+                          "value_mapping": {
+                            "type": "to_range", "value_type": "d",
+                            "from": -1.0, "to": 1.0
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                { "id": "codec", "element": null },
+                { "id": "dac", "element": null }
+              ],
+              "audio_signal_paths": [
+                {
+                  "connections": {
+                    "bluetooth": "codec",
+                    "codec": "dsp",
+                    "dsp": "dac",
+                    "dac": "analog_line_out"
+                  }
+                }
+              ]
+            }
+          }
+        })";
+
+    CHECK(models.loads(model_definition));
+
+    const std::string init_self = R"(
+        {
+          "audio_path_changes": [
+            { "op": "add_instance", "name": "self", "id": "MyDevice" }
+          ]
+        })";
+    settings.update(init_self);
+
+    ConfigStore::Changes changes;
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_update_after_init = R"(
+        [ { "type": "output", "method": "analog", "quality": "lossless" } ]
+    )";
+    roon_update.expect(expected_update_after_init);
+    pm.report_changes(settings, changes);
+    roon_update.check();
+
+    /* balance changed */
+    const std::string balance_changed = R"(
+        {
+          "audio_path_changes": [
+            {
+              "op": "update", "element": "self.dsp",
+              "kv": { "balance": { "type": "Y", "value": -4 } }
+            }
+          ]
+        }
+    )";
+    settings.update(balance_changed);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_balance_update = R"(
+        [
+          { "type": "balance", "value": -0.25,     "quality": "lossless" },
+          { "type": "output",  "method": "analog", "quality": "lossless" }
+        ]
+    )";
+    roon_update.expect(expected_balance_update);
+    pm.report_changes(settings, changes);
+    roon_update.check();
+
+    /* volume changed */
+    const std::string volume_changed = R"(
+        {
+          "audio_path_changes": [
+            {
+              "op": "update", "element": "self.dsp",
+              "kv": { "volume": { "type": "y", "value": 42 } }
+            }
+          ]
+        }
+    )";
+    settings.update(volume_changed);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_volume_update = R"(
+        [
+          { "type": "digital_volume", "gain": 42,         "quality": "high" },
+          { "type": "balance",        "value": -0.25,     "quality": "lossless" },
+          { "type": "output",         "method": "analog", "quality": "lossless" }
+        ]
+    )";
+    roon_update.expect(expected_volume_update);
+    pm.report_changes(settings, changes);
+    roon_update.check();
+
+    /* balance back to neutral, volume unchanged */
+    const std::string balance_neutral = R"(
+        {
+          "audio_path_changes": [
+            {
+              "op": "update", "element": "self.dsp",
+              "kv": { "balance": { "type": "Y", "value": 0 } }
+            }
+          ]
+        }
+    )";
+    settings.update(balance_neutral);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_balance_neutral_update = R"(
+        [
+          { "type": "digital_volume", "gain": 42,         "quality": "high" },
+          { "type": "output",         "method": "analog", "quality": "lossless" }
+        ]
+    )";
+
+    roon_update.expect(expected_balance_neutral_update);
     pm.report_changes(settings, changes);
 }
 

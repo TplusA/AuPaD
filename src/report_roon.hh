@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -117,6 +117,11 @@ class Roon: public Plugin
 
         const std::string &get_output_method_id() const { return path_output_method_; }
 
+        bool contains(const std::string &element_name) const
+        {
+            return elem_to_frag_index_.find(element_name) != elem_to_frag_index_.end();
+        }
+
         void append_fragment(
                 std::string &&element_name,
                 std::pair<nlohmann::json,
@@ -137,6 +142,17 @@ class Roon: public Plugin
         lookup_fragment(const std::string &element_name)
         {
             return reported_fragments_.at(elem_to_frag_index_.at(element_name));
+        }
+
+        nlohmann::json collect_fragments() const
+        {
+            auto result = nlohmann::json::array();
+
+            for(const auto &it : reported_fragments_)
+                if(it.first != nullptr)
+                    result.push_back(it.first);
+
+            return result;
         }
 
       private:
