@@ -310,6 +310,7 @@ TEST_CASE_FIXTURE(Fixture, "Tone control override in CALA CDR")
 
     roon_update.expect(expected_path_after_init);
     pm.report_changes(settings, changes);
+    changes.reset();
     roon_update.check();
 
     /* switching off tone control suppresses equalizer settings */
@@ -341,6 +342,7 @@ TEST_CASE_FIXTURE(Fixture, "Tone control override in CALA CDR")
 
     roon_update.expect(expected_path_after_tone_control_disable);
     pm.report_changes(settings, changes);
+    changes.reset();
     roon_update.check();
 
     /* switching tone control back on emits path including equalizer settings
@@ -696,6 +698,7 @@ TEST_CASE_FIXTURE(CustomModels, "Subsequent changes of Roon-related settings")
     )";
     roon_update.expect(expected_update_after_init);
     pm.report_changes(settings, changes);
+    changes.reset();
     roon_update.check();
 
     /* balance changed */
@@ -724,6 +727,7 @@ TEST_CASE_FIXTURE(CustomModels, "Subsequent changes of Roon-related settings")
     )";
     roon_update.expect(expected_balance_update);
     pm.report_changes(settings, changes);
+    changes.reset();
     roon_update.check();
 
     /* volume changed */
@@ -753,6 +757,7 @@ TEST_CASE_FIXTURE(CustomModels, "Subsequent changes of Roon-related settings")
     )";
     roon_update.expect(expected_volume_update);
     pm.report_changes(settings, changes);
+    changes.reset();
     roon_update.check();
 
     /* balance back to neutral, volume unchanged */

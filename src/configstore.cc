@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -232,6 +232,11 @@ ConfigStore::Changes::~Changes() {}
 void ConfigStore::Changes::reset(std::unique_ptr<ConfigStore::ChangeLog> changes)
 {
     changes_ = std::move(changes);
+}
+
+void ConfigStore::Changes::reset()
+{
+    changes_ = nullptr;
 }
 
 void ConfigStore::Changes::for_each_changed_device(

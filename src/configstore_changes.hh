@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -50,7 +50,8 @@ class Changes
     explicit Changes();
     ~Changes();
 
-    void reset(std::unique_ptr<ChangeLog> changes);
+    void reset(std::unique_ptr<ConfigStore::ChangeLog> changes);
+    void reset();
 
     void for_each_changed_device(const std::function<void(const std::string &, bool)> &apply) const;
     void for_each_changed_connection(const std::function<void(const std::string &from, const std::string &to, bool)> &apply) const;
