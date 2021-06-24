@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -81,8 +81,7 @@ static void expect_audio_path(
 {
     std::vector<std::vector<const StaticModels::SignalPaths::PathElement *>> paths;
     CHECK(tracker.enumerate_active_signal_paths(
-                [&paths] (const auto &p) { return append_path(paths, p, true); },
-                true));
+                [&paths] (const auto &p) { return append_path(paths, p, true); }));
     REQUIRE(paths.size() == 1);
     CHECK(paths[0] == expected);
 }
@@ -93,8 +92,7 @@ static void expect_audio_paths(
 {
     std::vector<std::vector<const StaticModels::SignalPaths::PathElement *>> paths;
     CHECK(tracker.enumerate_active_signal_paths(
-                [&paths] (const auto &p) { return append_path(paths, p, false); },
-                true));
+                [&paths] (const auto &p) { return append_path(paths, p, false); }));
     REQUIRE(paths.size() == expected.size());
 
     std::sort(paths.begin(), paths.end());
@@ -182,8 +180,7 @@ TEST_CASE_FIXTURE(Fixture, "Device with one mux element")
 
     CHECK(tracker.select("input_select", Selector(4)));
     CHECK(tracker.enumerate_active_signal_paths(
-            [] (const auto &p) { FAIL("unexpected"); return false; },
-            true));
+            [] (const auto &p) { FAIL("unexpected"); return false; }));
 
     CHECK(tracker.select("input_select", Selector(5)));
     expected[0] = dev.lookup_element("audio_source_c");
@@ -191,8 +188,7 @@ TEST_CASE_FIXTURE(Fixture, "Device with one mux element")
 
     CHECK(tracker.floating("input_select"));
     CHECK(tracker.enumerate_active_signal_paths(
-            [] (const auto &p) { FAIL("unexpected"); return false; },
-            true));
+            [] (const auto &p) { FAIL("unexpected"); return false; }));
 }
 
 /*
@@ -247,8 +243,7 @@ TEST_CASE_FIXTURE(Fixture, "Device with one demux element")
 
     CHECK(tracker.select("output_select", Selector(1)));
     CHECK(tracker.enumerate_active_signal_paths(
-            [] (const auto &p) { FAIL("unexpected"); return false; },
-            true));
+            [] (const auto &p) { FAIL("unexpected"); return false; }));
 
     CHECK(tracker.select("output_select", Selector(2)));
     expected[2] = dev.lookup_element("sink_a");
@@ -416,8 +411,7 @@ TEST_CASE_FIXTURE(Fixture, "Device with two mux and one demux elements")
     ModelCompliant::SignalPathTracker tracker(dev);
 
     CHECK(tracker.enumerate_active_signal_paths(
-            [] (const auto &p) { FAIL("unexpected"); return false; },
-            true));
+            [] (const auto &p) { FAIL("unexpected"); return false; }));
 
     CHECK(tracker.select("input_ab", Selector(0)));
     CHECK(tracker.select("input_sel", Selector(0)));
@@ -466,8 +460,7 @@ TEST_CASE_FIXTURE(Fixture, "Device with two mux and one demux elements")
 
     CHECK(tracker.floating("input_ab"));
     CHECK(tracker.enumerate_active_signal_paths(
-            [] (const auto &p) { FAIL("unexpected"); return false; },
-            true));
+            [] (const auto &p) { FAIL("unexpected"); return false; }));
 
     CHECK(tracker.select("input_sel", Selector(1)));
     expected =
@@ -520,13 +513,11 @@ TEST_CASE_FIXTURE(Fixture, "Device with source comprising of three sub-sources")
     ModelCompliant::SignalPathTracker tracker(dev);
 
     CHECK(tracker.enumerate_active_signal_paths(
-            [] (const auto &p) { FAIL("unexpected"); return false; },
-            true));
+            [] (const auto &p) { FAIL("unexpected"); return false; }));
 
     CHECK(tracker.select("output", Selector(0)));
     CHECK(tracker.enumerate_active_signal_paths(
-            [] (const auto &p) { FAIL("unexpected"); return false; },
-            true));
+            [] (const auto &p) { FAIL("unexpected"); return false; }));
 
     CHECK(tracker.select("output", Selector(1)));
     std::vector<const StaticModels::SignalPaths::PathElement *> expected
@@ -628,8 +619,7 @@ TEST_CASE_FIXTURE(Fixture, "Two outputs connected to the same sink")
 
     CHECK(tracker.select("output_select", Selector(2)));
     CHECK(tracker.enumerate_active_signal_paths(
-            [] (const auto &p) { FAIL("unexpected"); return false; },
-            true));
+            [] (const auto &p) { FAIL("unexpected"); return false; }));
 }
 
 TEST_SUITE_END();

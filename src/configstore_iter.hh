@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -65,7 +65,6 @@ class DeviceContext
     void for_each_setting(const std::string &element,
                           const SettingReportFn &apply) const;
     bool for_each_signal_path(
-            bool is_root_device,
             const ModelCompliant::SignalPathTracker::EnumerateCallbackFn &apply) const;
     const Value *get_control_value(const std::string &element_id,
                                    const std::string &control_id) const;

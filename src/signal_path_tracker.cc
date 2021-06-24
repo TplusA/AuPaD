@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -110,15 +110,10 @@ class DepthFirst
         depth_(depth)
     {}
 
-    bool traverse(const std::vector<std::pair<const StaticModels::SignalPaths::PathElement *, bool>> &sources,
-                  bool is_root_device)
+    bool traverse(const std::vector<std::pair<const StaticModels::SignalPaths::PathElement *, bool>> &sources)
     {
         for(const auto &source : sources)
         {
-            /* only traverse from active sources */
-            if(!is_root_device && !source.second)
-                continue;
-
             /* FIXME: sub-elements need to be handled properly */
             if(source.first->is_sub_element())
                 continue;
@@ -257,9 +252,9 @@ collect(const StaticModels::SignalPaths::PathElement *parent,
 }
 
 bool ModelCompliant::SignalPathTracker::enumerate_active_signal_paths(
-        const EnumerateCallbackFn &fn, bool is_root_device) const
+        const EnumerateCallbackFn &fn) const
 {
-    std::vector<std::pair<const StaticModels::SignalPaths::PathElement *, bool>> path;
+    ActivePath path;
 
     return DepthFirst(*this, 0,
         [this, &fn, &path]
@@ -282,5 +277,5 @@ bool ModelCompliant::SignalPathTracker::enumerate_active_signal_paths(
             }
 
             return collect_result;
-        }).traverse(sources_, is_root_device);
+        }).traverse(sources_);
 }

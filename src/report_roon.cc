@@ -597,7 +597,7 @@ compute_sorted_result(const ConfigStore::DeviceContext &dev,
         return nullptr;
 
     /* find active path with highest rank */
-    dev.for_each_signal_path(true,
+    dev.for_each_signal_path(
         [device_model, &cache, &ranks]
         (const auto &active_path)
         {
@@ -653,7 +653,7 @@ static bool is_signal_path_topology_unchanged(
         const auto &dev(si.with_device("self"));
         bool unchanged = false;
 
-        dev.for_each_signal_path(true,
+        dev.for_each_signal_path(
             [&path, &unchanged]
             (const auto &active_path)
             {

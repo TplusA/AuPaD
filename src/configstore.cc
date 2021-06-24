@@ -1253,12 +1253,11 @@ void ConfigStore::DeviceContext::for_each_setting(const std::string &element,
 }
 
 bool ConfigStore::DeviceContext::for_each_signal_path(
-        bool is_root_device,
         const ModelCompliant::SignalPathTracker::EnumerateCallbackFn &apply) const
 {
     const auto *sp = device_.get_signal_paths();
     return sp != nullptr
-        ? sp->enumerate_active_signal_paths(apply, is_root_device)
+        ? sp->enumerate_active_signal_paths(apply)
         : false;
 }
 

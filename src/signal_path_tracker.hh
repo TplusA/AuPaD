@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -70,9 +70,7 @@ class SignalPathTracker
     using ActivePath =
         std::vector<std::pair<const StaticModels::SignalPaths::PathElement *, bool>>;
     using EnumerateCallbackFn = std::function<bool(const ActivePath &)>;
-
-    bool enumerate_active_signal_paths(const EnumerateCallbackFn &fn,
-                                       bool is_root_device) const;
+    bool enumerate_active_signal_paths(const EnumerateCallbackFn &fn) const;
 };
 
 }
