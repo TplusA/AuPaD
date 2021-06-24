@@ -25,6 +25,7 @@
 #include "signal_path_tracker.hh"
 
 #include <functional>
+#include <unordered_set>
 #include <string>
 
 class Device;
@@ -68,6 +69,14 @@ class DeviceContext
             const ModelCompliant::SignalPathTracker::EnumerateCallbackFn &apply) const;
     const Value *get_control_value(const std::string &element_id,
                                    const std::string &control_id) const;
+    const std::map<std::pair<std::string, std::string>,
+                   std::unordered_set<std::string>> &
+    get_outgoing_connections() const;
+
+    using OutgoingConnectionFn =
+        std::function<void(const std::string &, const std::string &)>;
+    void for_each_outgoing_connection_from_sink(const std::string &sink_name,
+                                                const OutgoingConnectionFn &apply) const;
 };
 
 /*!

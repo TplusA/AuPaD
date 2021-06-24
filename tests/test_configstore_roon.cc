@@ -35,8 +35,6 @@
 
 #include "mock_messages.hh"
 
-TEST_SUITE_BEGIN("Roon output plugin");
-
 class RoonUpdate
 {
   private:
@@ -104,6 +102,8 @@ class RoonUpdate
         update_was_sent_ = false;
     }
 };
+
+TEST_SUITE_BEGIN("Roon output plugin, single appliance");
 
 class Fixture
 {
@@ -786,6 +786,456 @@ TEST_CASE_FIXTURE(CustomModels, "Subsequent changes of Roon-related settings")
     )";
 
     roon_update.expect(expected_balance_neutral_update);
+    pm.report_changes(settings, changes);
+}
+
+TEST_SUITE_END();
+
+TEST_SUITE_BEGIN("Roon output plugin, connected appliances");
+
+class ConnFixture
+{
+  protected:
+    ClientPlugin::PluginManager pm;
+    StaticModels::DeviceModelsDatabase models;
+    ConfigStore::Settings settings;
+    std::unique_ptr<MockMessages::Mock> mock_messages;
+
+    ClientPlugin::Roon *roon_plugin;
+    RoonUpdate roon_update;
+
+  public:
+    explicit ConnFixture():
+        settings(models),
+        mock_messages(std::make_unique<MockMessages::Mock>()),
+        roon_plugin(nullptr)
+    {
+        MockMessages::singleton = mock_messages.get();
+
+        expect<MockMessages::MsgInfo>(mock_messages,
+                                      "Registered plugin \"Roon\"", false);
+
+        auto roon(std::make_unique<ClientPlugin::Roon>(
+            [this] (const auto &asp, const auto &extra) { roon_update.send(asp, extra); }));
+        roon->add_client();
+        roon_plugin = roon.get();
+        pm.register_plugin(std::move(roon));
+
+        if(!models.load("test_player_and_amplifier.json", true))
+            models.load("tests/test_player_and_amplifier.json");
+    }
+
+    ~ConnFixture()
+    {
+        expect<MockMessages::MsgInfo>(mock_messages,
+                                      "Unregistered plugin \"Roon\"", false);
+        pm.shutdown();
+
+        try
+        {
+            roon_update.check();
+            mock_messages->done();
+        }
+        catch(...)
+        {
+            /* no throwing from dtors */
+        }
+
+        MockMessages::singleton = nullptr;
+    }
+
+  protected:
+    void expect_equal(const nlohmann::json &expected, const nlohmann::json &have)
+    {
+        const auto d(nlohmann::json::diff(have, expected));
+
+        if(d.empty())
+            return;
+
+        MESSAGE("Diff: " << d);
+        CHECK(have == expected);
+    }
+};
+
+TEST_CASE_FIXTURE(ConnFixture, "Player is connected to one amplifier, headphones are plugged here and there")
+{
+    /* the appliance we are running in introduces itself and tells us it is
+     * configured to play from Bluetooth to the analog line output */
+    const std::string init_self = R"(
+        {
+          "audio_path_changes": [
+            { "op": "add_instance", "name": "self", "id": "Player" },
+            {
+              "op": "set", "element": "self.input_select",
+              "kv": { "src": { "type": "s", "value": "bt" } }
+            },
+            {
+              "op": "set", "element": "self.output_select",
+              "kv": { "hp_plugged": { "type": "b", "value": false } }
+            },
+            {
+              "op": "set", "element": "self.dsp",
+              "kv": {
+                "balance": { "type": "Y", "value": -1 },
+                "volume": { "type": "y", "value": 30 }
+              }
+            }
+          ]
+        })";
+    settings.update(init_self);
+
+    ConfigStore::Changes changes;
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_for_init_self = R"(
+        [
+          { "type": "digital_volume", "quality": "high", "gain": 30.0 },
+          { "type": "balance", "quality": "lossless", "gain": -0.0625 },
+          { "type": "output", "method": "analog", "quality": "lossless" }
+        ]
+    )";
+    roon_update.expect(expected_for_init_self);
+    pm.report_changes(settings, changes);
+    changes.reset();
+    roon_update.check();
+
+    /* an amplifier has been connected/detected to the analog line output so
+     * that its first analog input is routed to the speakers */
+    const auto amp_connected = R"(
+        {
+          "audio_path_changes": [
+            { "op": "add_instance", "name": "amp", "id": "Amplifier" },
+            {
+              "op": "set", "element": "amp.input_select",
+              "kv": { "src": { "type": "s", "value": "in_1" } }
+            },
+            {
+              "op": "set", "element": "amp.output_select",
+              "kv": { "hp_plugged": { "type": "b", "value": false } }
+            },
+            {
+              "op": "set", "element": "amp.bass",
+              "kv": { "level": { "type": "Y", "value": 2 } }
+            },
+            {
+              "op": "set", "element": "amp.amp",
+              "kv": { "enable": { "type": "b", "value": true } }
+            },
+            {
+              "op": "connect",
+              "from": "self.analog_line_out", "to": "amp.analog_in_1"
+            }
+          ]
+        })";
+    settings.update(amp_connected);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_for_amp_connected = R"(
+        [
+          { "type": "digital_volume", "quality": "high", "gain": 30.0 },
+          { "type": "balance", "quality": "lossless", "gain": -0.0625 },
+          { "type": "eq", "sub_type": "bass_management", "quality": "enhanced", "gain": 2.0 },
+          { "type": "output", "method": "speakers", "quality": "lossless" }
+        ]
+    )";
+    roon_update.expect(expected_for_amp_connected);
+    pm.report_changes(settings, changes);
+    changes.reset();
+    roon_update.check();
+
+    /* plug headphones into the player */
+    const auto headphones_plugged_into_player = R"(
+        {
+          "audio_path_changes": [
+            {
+              "op": "set", "element": "self.output_select",
+              "kv": { "hp_plugged": { "type": "b", "value": true } }
+            }
+          ]
+        })";
+    settings.update(headphones_plugged_into_player);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_for_headphones_plugged_into_player = R"(
+        [
+          { "type": "digital_volume", "quality": "high", "gain": 30.0 },
+          { "type": "balance", "quality": "lossless", "gain": -0.0625 },
+          { "type": "output", "method": "headphones", "quality": "lossless" }
+        ]
+    )";
+    roon_update.expect(expected_for_headphones_plugged_into_player);
+    pm.report_changes(settings, changes);
+    changes.reset();
+    roon_update.check();
+
+    /* unplug headphones from the player, audio path is back to the previous
+     * path */
+    const auto headphones_pulled_from_player = R"(
+        {
+          "audio_path_changes": [
+            {
+              "op": "set", "element": "self.output_select",
+              "kv": { "hp_plugged": { "type": "b", "value": false } }
+            }
+          ]
+        })";
+    settings.update(headphones_pulled_from_player);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    roon_update.expect(expected_for_amp_connected);
+    pm.report_changes(settings, changes);
+    changes.reset();
+    roon_update.check();
+
+    /* now plug the headphones into the amp */
+    const auto headphones_plugged_into_amp = R"(
+        {
+          "audio_path_changes": [
+            {
+              "op": "set", "element": "amp.output_select",
+              "kv": { "hp_plugged": { "type": "b", "value": true } }
+            }
+          ]
+        })";
+    settings.update(headphones_plugged_into_amp);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_for_headphones_plugged_into_amp = R"(
+        [
+          { "type": "digital_volume", "quality": "high", "gain": 30.0 },
+          { "type": "balance", "quality": "lossless", "gain": -0.0625 },
+          { "type": "eq", "sub_type": "bass_management", "quality": "enhanced", "gain": 2.0 },
+          { "type": "output", "method": "headphones", "quality": "lossless" }
+        ]
+    )";
+    roon_update.expect(expected_for_headphones_plugged_into_amp);
+    pm.report_changes(settings, changes);
+    changes.reset();
+    roon_update.check();
+
+    /* late report from amplifier that its internal output stage has been
+     * disabled to conserve power and avoid noise from the otherwise silent
+     * speakers: no report for Roon is expected */
+    const auto amp_output_power_down = R"(
+        {
+          "audio_path_changes": [
+            {
+              "op": "set", "element": "amp.amp",
+              "kv": { "enable": { "type": "b", "value": false } }
+            }
+          ]
+        })";
+    settings.update(amp_output_power_down);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    pm.report_changes(settings, changes);
+    roon_update.check();
+}
+
+TEST_CASE_FIXTURE(ConnFixture, "Player is connected to one amplifier, single configuration")
+{
+    const std::string init_compound = R"(
+        {
+          "audio_path_changes": [
+            { "op": "add_instance", "name": "self", "id": "Player" },
+            { "op": "add_instance", "name": "amp", "id": "Amplifier" },
+            {
+              "op": "connect",
+              "from": "self.analog_line_out", "to": "amp.analog_in_1"
+            },
+            {
+              "op": "set", "element": "self.input_select",
+              "kv": { "src": { "type": "s", "value": "bt" } }
+            },
+            {
+              "op": "set", "element": "self.output_select",
+              "kv": { "hp_plugged": { "type": "b", "value": false } }
+            },
+            {
+              "op": "set", "element": "self.dsp",
+              "kv": {
+                "balance": { "type": "Y", "value": 2 },
+                "volume": { "type": "y", "value": 13 }
+              }
+            },
+            {
+              "op": "set", "element": "amp.input_select",
+              "kv": { "src": { "type": "s", "value": "in_1" } }
+            },
+            {
+              "op": "set", "element": "amp.output_select",
+              "kv": { "hp_plugged": { "type": "b", "value": true } }
+            },
+            {
+              "op": "set", "element": "amp.amp",
+              "kv": { "enable": { "type": "b", "value": true } }
+            },
+            {
+              "op": "set", "element": "amp.bass",
+              "kv": { "level": { "type": "Y", "value": -3 } }
+            }
+          ]
+        })";
+    settings.update(init_compound);
+
+    ConfigStore::Changes changes;
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_for_headphones_plugged_into_amp = R"(
+        [
+          { "type": "digital_volume", "quality": "high", "gain": 13.0 },
+          { "type": "balance", "quality": "lossless", "gain": 0.125 },
+          { "type": "eq", "sub_type": "bass_management", "quality": "enhanced", "gain": -3.0 },
+          { "type": "output", "method": "headphones", "quality": "lossless" }
+        ]
+    )";
+    roon_update.expect(expected_for_headphones_plugged_into_amp);
+    pm.report_changes(settings, changes);
+}
+
+TEST_CASE_FIXTURE(ConnFixture, "Player is connected to two amplifiers, switching amplifier inputs")
+{
+    const std::string init_compound = R"(
+        {
+          "audio_path_changes": [
+            { "op": "add_instance", "name": "self", "id": "Player" },
+            { "op": "add_instance", "name": "amp_A", "id": "Amplifier" },
+            { "op": "add_instance", "name": "amp_B", "id": "Amplifier" },
+            {
+              "op": "connect",
+              "from": "self.analog_line_out", "to": "amp_A.analog_in_1"
+            },
+            {
+              "op": "connect",
+              "from": "self.analog_line_out", "to": "amp_B.analog_in_1"
+            },
+            {
+              "op": "set", "element": "self.input_select",
+              "kv": { "src": { "type": "s", "value": "bt" } }
+            },
+            {
+              "op": "set", "element": "self.output_select",
+              "kv": { "hp_plugged": { "type": "b", "value": false } }
+            },
+            {
+              "op": "set", "element": "self.dsp",
+              "kv": {
+                "balance": { "type": "Y", "value": 1 },
+                "volume": { "type": "y", "value": 24 }
+              }
+            },
+            {
+              "op": "set", "element": "amp_A.input_select",
+              "kv": { "src": { "type": "s", "value": "in_1" } }
+            },
+            {
+              "op": "set", "element": "amp_A.output_select",
+              "kv": { "hp_plugged": { "type": "b", "value": false } }
+            },
+            {
+              "op": "set", "element": "amp_A.amp",
+              "kv": { "enable": { "type": "b", "value": true } }
+            },
+            {
+              "op": "set", "element": "amp_A.bass",
+              "kv": { "level": { "type": "Y", "value": -3 } }
+            },
+            {
+              "op": "set", "element": "amp_B.input_select",
+              "kv": { "src": { "type": "s", "value": "in_2" } }
+            },
+            {
+              "op": "set", "element": "amp_B.output_select",
+              "kv": { "hp_plugged": { "type": "b", "value": true } }
+            },
+            {
+              "op": "set", "element": "amp_B.amp",
+              "kv": { "enable": { "type": "b", "value": false } }
+            },
+            {
+              "op": "set", "element": "amp_B.bass",
+              "kv": { "level": { "type": "Y", "value": 5 } }
+            }
+          ]
+        })";
+    settings.update(init_compound);
+
+    ConfigStore::Changes changes;
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_for_init_compound = R"(
+        [
+          { "type": "digital_volume", "quality": "high", "gain": 24.0 },
+          { "type": "balance", "quality": "lossless", "gain": 0.0625 },
+          { "type": "eq", "sub_type": "bass_management", "quality": "enhanced", "gain": -3.0 },
+          { "type": "output", "method": "speakers", "quality": "lossless" }
+        ]
+    )";
+    roon_update.expect(expected_for_init_compound);
+    pm.report_changes(settings, changes);
+    changes.reset();
+    roon_update.check();
+
+    /* now switch the inputs on both amplifiere so that the audio path goes
+     * into the headphones connected to amplifier B */
+    const auto switched_amp_inputs = R"(
+        {
+          "audio_path_changes": [
+            {
+              "op": "set", "element": "amp_A.input_select",
+              "kv": { "src": { "type": "s", "value": "in_2" } }
+            },
+            {
+              "op": "set", "element": "amp_B.input_select",
+              "kv": { "src": { "type": "s", "value": "in_1" } }
+            }
+          ]
+        })";
+    settings.update(switched_amp_inputs);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_for_switched_amp_inputs = R"(
+        [
+          { "type": "digital_volume", "quality": "high", "gain": 24.0 },
+          { "type": "balance", "quality": "lossless", "gain": 0.0625 },
+          { "type": "eq", "sub_type": "bass_management", "quality": "enhanced", "gain": 5.0 },
+          { "type": "output", "method": "headphones", "quality": "lossless" }
+        ]
+    )";
+    roon_update.expect(expected_for_switched_amp_inputs);
     pm.report_changes(settings, changes);
 }
 

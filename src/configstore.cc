@@ -1275,3 +1275,28 @@ ConfigStore::DeviceContext::get_control_value(const std::string &element_id,
 
     return &val->second;
 }
+
+const std::map<std::pair<std::string, std::string>,
+               std::unordered_set<std::string>> &
+ConfigStore::DeviceContext::get_outgoing_connections() const
+{
+    return device_.get_outgoing_connections();
+}
+
+void ConfigStore::DeviceContext::for_each_outgoing_connection_from_sink(
+        const std::string &sink_name, const OutgoingConnectionFn &apply) const
+{
+    const auto &conns(device_.get_outgoing_connections());
+
+    if(conns.empty())
+        return;
+
+    for(const auto &conn : conns)
+    {
+        if(conn.first.first != sink_name)
+            continue;
+
+        for(const auto &target : conn.second)
+            apply(conn.first.second, target);
+    }
+}

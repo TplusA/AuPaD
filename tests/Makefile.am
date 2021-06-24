@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
+# Copyright (C) 2019, 2020, 2021  T+A elektroakustik GmbH & Co. KG
 #
 # This file is part of AuPaD.
 #
@@ -81,12 +81,15 @@ test_signal_paths_LDADD = \
 test_signal_paths_CPPFLAGS = $(AM_CPPFLAGS)
 test_signal_paths_CXXFLAGS = $(AM_CXXFLAGS)
 
-BUILT_SOURCES = test_models.json
+BUILT_SOURCES = test_models.json test_player_and_amplifier.json
 
 CLEANFILES += $(BUILT_SOURCES)
 
 test_models.json:
 	$(LN_S) $(top_srcdir)/documentation/models.json test_models.json
+
+test_player_and_amplifier.json:
+	$(LN_S) $(srcdir)/player_and_amplifier.json test_player_and_amplifier.json
 
 doctest: $(check_PROGRAMS)
 	for p in $(check_PROGRAMS); do \

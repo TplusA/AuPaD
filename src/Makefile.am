@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
+# Copyright (C) 2019, 2020, 2021  T+A elektroakustik GmbH & Co. KG
 #
 # This file is part of AuPaD.
 #
@@ -63,6 +63,7 @@ libconfigstore_roon_la_CXXFLAGS = $(AM_CXXFLAGS)
 
 libsigpath_la_SOURCES = \
     signal_path_tracker.cc signal_path_tracker.hh \
+    compound_signal_path.cc compound_signal_path.hh \
     signal_paths.hh
 libsigpath_la_CPPFLAGS = $(AM_CPPFLAGS)
 libsigpath_la_CXXFLAGS = $(AM_CXXFLAGS)
