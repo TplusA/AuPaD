@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2020  T+A elektroakustik GmbH & Co. KG
+# Copyright (C) 2020, 2021  T+A elektroakustik GmbH & Co. KG
 #
 # This file is part of AuPaD.
 #
@@ -38,7 +38,8 @@ configstore_roon_lib = static_library('configstore_roon',
 )
 
 sigpath_lib = static_library('sigpath',
-    'signal_path_tracker.cc', dependencies: config_h
+    ['signal_path_tracker.cc', 'compound_signal_path.cc'],
+    dependencies: config_h
 )
 
 executable(

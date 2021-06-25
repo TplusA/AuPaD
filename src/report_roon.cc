@@ -442,13 +442,15 @@ static bool patch_entry_for_name(const ConfigStore::DeviceContext &dev,
     return false;
 }
 
-static const std::pair<uint16_t, std::string> *determine_path_rank_and_output_method(
-        const ModelCompliant::SignalPathTracker::ActivePath &p,
-        const StaticModels::DeviceModel *device_model,
+static const std::pair<uint16_t, std::string> *
+determine_path_rank_and_output_method(
+        const ModelCompliant::CompoundSignalPathTracker &spt,
+        const ModelCompliant::CompoundSignalPath &p,
         std::unordered_map<const StaticModels::Elements::AudioSink *,
                            std::pair<uint16_t, std::string>> &ranks)
 {
-    const auto *sink = device_model->get_audio_sink(p.back().first->get_name());
+    const auto &dev(spt.settings_iterator_.with_device(spt.map_path_index_to_device_name(p.back().first)));
+    const auto *sink = dev.get_model()->get_audio_sink(p.back().second->get_name());
     const auto &r(ranks.find(sink));
     if(r != ranks.end())
         return &r->second;
@@ -472,7 +474,7 @@ static const std::pair<uint16_t, std::string> *determine_path_rank_and_output_me
 
     if(output_method.empty())
         BUG("Roon output method undefined for sink %s in model for %s",
-            sink->id_.c_str(), device_model->name_.c_str());
+            sink->id_.c_str(), dev.get_model()->name_.c_str());
 
     return &ranks.emplace(sink, std::make_pair(rank, std::move(output_method)))
                 .first->second;
@@ -499,16 +501,19 @@ collect_ranked_controls(const StaticModels::DeviceModel &device_model,
 }
 
 static void fill_cache_with_values_from_device_context(
-        const ConfigStore::DeviceContext &dev,
-        const StaticModels::DeviceModel &device_model,
+        const ConfigStore::SettingsIterator &settings_iter,
         ClientPlugin::Roon::Cache &cache)
 {
     /* fill in the values we have in the current device context, leave the rest
      * of the values the way they are */
     for(const auto &elem : cache.get_path())
     {
-        dev.for_each_setting(elem.first->get_name(),
-            [&dev, &device_model, &cache]
+        const auto &device_instance_name(cache.get_path().map_path_index_to_device_name(elem.first));
+        const auto &dev(settings_iter.with_device(device_instance_name));
+        const auto &device_model = *dev.get_model();
+
+        dev.for_each_setting(elem.second->get_name(),
+            [&dev, &device_model, &device_instance_name, &cache]
             (const std::string &element_name, const std::string &value_name,
              const ConfigStore::Value &value)
             {
@@ -517,7 +522,8 @@ static void fill_cache_with_values_from_device_context(
                 if(ctrl == nullptr)
                     return true;
 
-                const auto name(element_name + '.' + value_name);
+                const auto name(device_instance_name + '.' +
+                                element_name + '.' + value_name);
 
                 try
                 {
@@ -536,37 +542,38 @@ static void fill_cache_with_values_from_device_context(
     }
 }
 
-static void update_cache_with_values_from_device_context(
-    const ConfigStore::DeviceContext &dev,
+static bool update_cache_with_values_from_device_context(
+    const ConfigStore::Settings &settings,
     const ConfigStore::Changes &changes,
     ClientPlugin::Roon::Cache &cache)
 {
+    bool result = false;
+    const ConfigStore::SettingsIterator si(settings);
+
     changes.for_each_changed_value(
-        [&dev, &cache]
+        [&si, &cache, &result]
         (const auto &name, const auto &old_value, const auto &new_value)
         {
+            if(!cache.contains(name))
+                return;
+
             const auto &device_and_qualified_control(
                 StaticModels::Utils::split_qualified_name(name));
-            if(std::get<0>(device_and_qualified_control) != "self")
-            {
-                MSG_NOT_IMPLEMENTED();
-                return;
-            }
-
-            log_assert(cache.contains(std::get<1>(device_and_qualified_control)));
+            const auto &dev(si.with_device(std::get<0>(device_and_qualified_control)));
 
             if(new_value.is_of_type(ConfigStore::ValueType::VT_VOID))
-                cache.update_fragment(std::get<1>(device_and_qualified_control),
-                                       nullptr);
+                cache.update_fragment(name, nullptr);
             else
             {
-                auto &entry(cache.lookup_fragment(
-                                std::get<1>(device_and_qualified_control)));
-
+                auto &entry(cache.lookup_fragment(name));
                 patch_entry_for_name(dev, name, new_value,
                                      *entry.second, entry.first);
             }
+
+            result = true;
        });
+
+    return result;
 }
 
 static nlohmann::json generate_report_from_cache(const ClientPlugin::Roon::Cache &cache)
@@ -585,25 +592,25 @@ static nlohmann::json generate_report_from_cache(const ClientPlugin::Roon::Cache
 }
 
 static nlohmann::json
-compute_sorted_result(const ConfigStore::DeviceContext &dev,
-                      const StaticModels::DeviceModel *device_model,
+compute_sorted_result(const ConfigStore::SettingsIterator &settings_iter,
+                      const std::string &root_device_instance_name,
                       ClientPlugin::Roon::Cache &cache,
                       std::unordered_map<const StaticModels::Elements::AudioSink *,
                                          std::pair<uint16_t, std::string>> &ranks)
 {
     cache.clear();
 
-    if(device_model == nullptr)
-        return nullptr;
+    ModelCompliant::CompoundSignalPathTracker spt(settings_iter);
 
     /* find active path with highest rank */
-    dev.for_each_signal_path(true,
-        [device_model, &cache, &ranks]
+    spt.enumerate_compound_signal_paths(
+        root_device_instance_name,
+        [&spt, &cache, &ranks]
         (const auto &active_path)
         {
-            cache.put_path(active_path,
-                           determine_path_rank_and_output_method(
-                                    active_path, device_model, ranks));
+            cache.put_path(spt, active_path,
+                           determine_path_rank_and_output_method(spt, active_path,
+                                                                 ranks));
             return true;
         });
 
@@ -614,17 +621,21 @@ compute_sorted_result(const ConfigStore::DeviceContext &dev,
      * according to element positions and control ranks */
     for(const auto &elem : cache.get_path())
     {
-        auto ranked_entries(collect_ranked_controls(*device_model,
-                                                    elem.first->get_name()));
+        const auto &device_instance_name(cache.get_path().map_path_index_to_device_name(elem.first));
+        const auto &dev(settings_iter.with_device(device_instance_name));
+        auto ranked_entries(collect_ranked_controls(*dev.get_model(),
+                                                    elem.second->get_name()));
 
         for(auto &it : ranked_entries)
         {
-            auto name(elem.first->get_name() + '.' + it.second.second->id_);
+            auto name(device_instance_name + '.' +
+                      elem.second->get_name() + '.' + it.second.second->id_);
             cache.append_fragment(std::move(name), std::move(it.second));
         }
     }
 
-    fill_cache_with_values_from_device_context(dev, *device_model, cache);
+    fill_cache_with_values_from_device_context(settings_iter, cache);
+
     return generate_report_from_cache(cache);
 }
 
@@ -645,17 +656,17 @@ static bool is_root_appliance_unchanged(const ConfigStore::Changes &changes)
 
 static bool is_signal_path_topology_unchanged(
         const ConfigStore::Settings &settings,
-        const ModelCompliant::SignalPathTracker::ActivePath &path)
+        const ModelCompliant::CompoundSignalPath &path)
 {
     try
     {
         const ConfigStore::SettingsIterator si(settings);
-        const auto &dev(si.with_device("self"));
+        ModelCompliant::CompoundSignalPathTracker spt(si);
         bool unchanged = false;
 
-        dev.for_each_signal_path(true,
-            [&path, &unchanged]
-            (const auto &active_path)
+        spt.enumerate_compound_signal_paths(
+            "self",
+            [&path, &unchanged] (const auto &active_path)
             {
                 unchanged = active_path == path;
                 return false;
@@ -697,16 +708,19 @@ void ClientPlugin::Roon::report_changes(const ConfigStore::Settings &settings,
 
     /* have information about previously seen, unchanged signal path, so just
      * patch the changed values */
+    bool have_changes = false;
     try
     {
-        const ConfigStore::SettingsIterator si(settings);
-        const auto &dev(si.with_device("self"));
-        update_cache_with_values_from_device_context(dev ,changes, cache_);
+        have_changes =
+            update_cache_with_values_from_device_context(settings, changes, cache_);
     }
     catch(const std::out_of_range &e)
     {
         BUG("Failed iterating device \"self\": %s", e.what());
     }
+
+    if(!have_changes)
+        return;
 
     const auto output = generate_report_from_cache(cache_);
     if(output != nullptr)
@@ -725,8 +739,7 @@ bool ClientPlugin::Roon::full_report(const ConfigStore::Settings &settings,
 
     try
     {
-        const auto &dev(si.with_device("self"));
-        output = compute_sorted_result(dev, dev.get_model(), cache_, ranks_);
+        output = compute_sorted_result(si, "self", cache_, ranks_);
     }
     catch(const std::out_of_range &e)
     {

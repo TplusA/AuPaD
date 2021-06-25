@@ -23,7 +23,7 @@
 #define REPORT_ROON_HH
 
 #include "client_plugin.hh"
-#include "signal_path_tracker.hh"
+#include "compound_signal_path.hh"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wswitch-enum"
@@ -56,7 +56,7 @@ class Roon: public Plugin
         static constexpr auto INVALID_RANK = std::numeric_limits<uint16_t>::max();
 
       private:
-        ModelCompliant::SignalPathTracker::ActivePath path_;
+        ModelCompliant::CompoundSignalPath path_;
         uint16_t path_rank_;
         std::string path_output_method_;
         std::vector<std::pair<nlohmann::json,
@@ -87,7 +87,8 @@ class Roon: public Plugin
 
         bool empty() const { return path_.empty(); }
 
-        bool put_path(const ModelCompliant::SignalPathTracker::ActivePath &path,
+        bool put_path(const ModelCompliant::CompoundSignalPathTracker &spt,
+                      const ModelCompliant::CompoundSignalPath &path,
                       const std::pair<uint16_t, std::string> *path_rank_and_method)
         {
             if(path_rank_and_method == nullptr)
@@ -105,7 +106,7 @@ class Roon: public Plugin
                 return false;
             }
 
-            path_ = path;
+            path_ = spt.mk_self_contained_path(path);
             path_rank_ = rm.first;
             path_output_method_ = get_checked_output_method(rm.second);
             reported_fragments_.clear();

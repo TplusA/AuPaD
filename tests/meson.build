@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2020  T+A elektroakustik GmbH & Co. KG
+# Copyright (C) 2020, 2021  T+A elektroakustik GmbH & Co. KG
 #
 # This file is part of AuPaD.
 #
@@ -32,6 +32,9 @@ testrunner_lib = static_library('testrunner', 'testrunner.cc',
 
 configure_file(input: '../documentation/models.json',
                output: 'test_models.json', copy: true)
+
+configure_file(input: 'player_and_amplifier.json',
+               output: 'test_player_and_amplifier.json', copy: true)
 
 test('Configuration Store',
     executable('test_configstore',
