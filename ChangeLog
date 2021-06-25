@@ -1,3 +1,17 @@
+2021-06-28  Robert Tiemann  <r.tiemann@ta-hifi.de>
+
+	* Version 0.4 released.
+
+	* Roon: Support audio paths across multiple devices. The configuration
+	  database supported this already, but the Roon plugin was unable to
+	  cope with such a setting.
+
+	* Roon: Fix audio path caching.
+
+	* Models: Add description for MP200HA. This device does not exist, but
+	  it models two physical appliances as a single one. It was introduced
+	  to work around the previous lack of support for compound appliances.
+
 2020-08-21  Robert Tiemann  <r.tiemann@ta-hifi.de>
 
 	* Version 0.3 released.
@@ -36,4 +50,4 @@
 	  and support for Roon are already included.
 
 
-Copyright 2019, 2020 T+A elektroakustik GmbH & Co. KG
+Copyright 2019, 2020, 2021 T+A elektroakustik GmbH & Co. KG

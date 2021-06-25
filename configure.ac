@@ -1,4 +1,4 @@
-dnl Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
+dnl Copyright (C) 2019, 2020, 2021  T+A elektroakustik GmbH & Co. KG
 dnl
 dnl This file is part of AuPaD.
 dnl
@@ -18,7 +18,7 @@ dnl Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 dnl MA  02110-1301, USA.
 
 AC_PREREQ([2.69])
-AC_INIT([AuPaD], [0.3], [r.tiemann@ta-hifi.com])
+AC_INIT([AuPaD], [0.4], [r.tiemann@ta-hifi.com])
 AC_CONFIG_AUX_DIR([config])
 AM_INIT_AUTOMAKE([1.11 -Wall -Werror foreign])
 AM_SILENT_RULES([yes])
