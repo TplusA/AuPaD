@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -213,7 +213,7 @@ TEST_CASE_FIXTURE(Fixture, "Newly created configuration store is empty")
 
 TEST_CASE_FIXTURE(Fixture, "Single unconfigured instance")
 {
-    const std::string input = R"(
+    const auto input = R"(
         {
             "audio_path_changes": [
                 { "op": "add_instance", "name": "self", "id": "MP3100HV" }
@@ -248,7 +248,7 @@ TEST_CASE_FIXTURE(Fixture, "Single unconfigured instance through JSON settings")
 
 TEST_CASE_FIXTURE(Fixture, "Two unconfigured instances")
 {
-    const std::string input = R"(
+    const auto input = R"(
         {
             "audio_path_changes": [
                 { "op": "add_instance", "name": "self", "id": "MP3100HV" },
@@ -273,7 +273,7 @@ TEST_CASE_FIXTURE(Fixture, "Two unconfigured instances")
 
 TEST_CASE_FIXTURE(Fixture, "Three unconfigured instances")
 {
-    const std::string input = R"(
+    const auto input = R"(
         {
             "audio_path_changes": [
                 { "op": "add_instance", "name": "self", "id": "MP3100HV" },
@@ -300,7 +300,7 @@ TEST_CASE_FIXTURE(Fixture, "Three unconfigured instances")
 
 TEST_CASE_FIXTURE(Fixture, "Remove one out of three unconfigured instances")
 {
-    const std::string input1 = R"(
+    const auto input1 = R"(
         {
             "audio_path_changes": [
                 { "op": "add_instance", "name": "self", "id": "MP3100HV" },
@@ -316,7 +316,7 @@ TEST_CASE_FIXTURE(Fixture, "Remove one out of three unconfigured instances")
                                    "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
-    const std::string input2 = R"(
+    const auto input2 = R"(
         {
             "audio_path_changes": [
                 { "op": "rm_instance", "name": "a" }
@@ -336,7 +336,7 @@ TEST_CASE_FIXTURE(Fixture, "Remove one out of three unconfigured instances")
 
 TEST_CASE_FIXTURE(Fixture, "Clear all instances")
 {
-    const std::string input1 = R"(
+    const auto input1 = R"(
         {
             "audio_path_changes": [
                 { "op": "add_instance", "name": "self", "id": "R1000E" }
@@ -346,7 +346,7 @@ TEST_CASE_FIXTURE(Fixture, "Clear all instances")
                                    "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
-    const std::string input2 = R"(
+    const auto input2 = R"(
         { "audio_path_changes": [ { "op": "clear_instances" } ] })";
     settings.update(input2);
 
@@ -355,7 +355,7 @@ TEST_CASE_FIXTURE(Fixture, "Clear all instances")
 
 TEST_CASE_FIXTURE(Fixture, "Full initial audio path information")
 {
-    const std::string input = R"(
+    const auto input = R"(
         {
             "audio_path_changes": [
                 { "op": "clear_instances" },
@@ -408,7 +408,7 @@ TEST_CASE_FIXTURE(Fixture, "Full initial audio path information")
 
 TEST_CASE_FIXTURE(Fixture, "Update single value after initial audio path information")
 {
-    const std::string input1 = R"(
+    const auto input1 = R"(
         {
             "audio_path_changes": [
                 { "op": "clear_instances" },
@@ -432,7 +432,7 @@ TEST_CASE_FIXTURE(Fixture, "Update single value after initial audio path informa
                                    "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
-    const std::string input2 = R"(
+    const auto input2 = R"(
         {
             "audio_path_changes": [
                 {
@@ -465,7 +465,7 @@ TEST_CASE_FIXTURE(Fixture, "Update single value after initial audio path informa
 
 TEST_CASE_FIXTURE(Fixture, "Set single value, purge remaining settings")
 {
-    const std::string input1 = R"(
+    const auto input1 = R"(
         {
             "audio_path_changes": [
                 { "op": "add_instance", "name": "self", "id": "MP3100HV" },
@@ -488,7 +488,7 @@ TEST_CASE_FIXTURE(Fixture, "Set single value, purge remaining settings")
                                    "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
-    const std::string input2 = R"(
+    const auto input2 = R"(
         {
             "audio_path_changes": [
                 {
@@ -520,7 +520,7 @@ TEST_CASE_FIXTURE(Fixture, "Set single value, purge remaining settings")
 
 TEST_CASE_FIXTURE(Fixture, "Unset one element value, make it an unknown value")
 {
-    const std::string input1 = R"(
+    const auto input1 = R"(
         {
             "audio_path_changes": [
                 { "op": "add_instance", "name": "self", "id": "MP3100HV" },
@@ -537,7 +537,7 @@ TEST_CASE_FIXTURE(Fixture, "Unset one element value, make it an unknown value")
                                    "No model defined for device ID \"%s\"", true);
     settings.update(input1);
 
-    const std::string input2 = R"(
+    const auto input2 = R"(
         {
             "audio_path_changes": [
                 { "op": "unset", "element": "self.dsp", "v": "phase_invert" }
@@ -561,7 +561,7 @@ TEST_CASE_FIXTURE(Fixture, "Unset one element value, make it an unknown value")
 
 TEST_CASE_FIXTURE(Fixture, "Unset values of all controls in an element")
 {
-    const std::string input1 = R"(
+    const auto input1 = R"(
         {
             "audio_path_changes": [
                 { "op": "add_instance", "name": "self", "id": "MP3100HV" },
@@ -584,7 +584,7 @@ TEST_CASE_FIXTURE(Fixture, "Unset values of all controls in an element")
     CHECK(js.extract_changes(changes));
     }
 
-    const std::string input2 = R"(
+    const auto input2 = R"(
         { "audio_path_changes": [ { "op": "unset_all", "element": "self.dsp" } ] })";
     settings.update(input2);
 
@@ -627,7 +627,7 @@ TEST_CASE_FIXTURE(Fixture, "Unset values of all controls in an element")
 
 TEST_CASE_FIXTURE(Fixture, "Connect audio output of one instance to input of another instance")
 {
-    const std::string input = R"(
+    const auto input = R"(
         {
             "audio_path_changes": [
                 { "op": "clear_instances" },
@@ -696,7 +696,7 @@ TEST_CASE_FIXTURE(Fixture, "Connect audio output of one instance to input of ano
  */
 void Fixture::bunch_of_connected_instances(bool clear_change_log)
 {
-    const std::string input = R"(
+    const auto input = R"(
         {
             "audio_path_changes": [
                 { "op": "clear_instances" },
@@ -839,7 +839,7 @@ TEST_CASE_FIXTURE(Fixture, "Changed values are logged and can be processed")
 {
     bunch_of_connected_instances();
 
-    const std::string some_values = R"(
+    const auto some_values = R"(
         {
             "audio_path_changes": [
                 {
@@ -916,7 +916,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect single one-to-one audio connection")
 {
     bunch_of_connected_instances(true);
 
-    const std::string input = R"(
+    const auto input = R"(
         {
             "audio_path_changes": [
                 { "op": "disconnect", "from": "b.o1", "to": "e.i1" }
@@ -954,7 +954,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect single one-to-many audio connection")
 {
     bunch_of_connected_instances();
 
-    const std::string input = R"(
+    const auto input = R"(
         {
             "audio_path_changes": [
                 { "op": "disconnect", "from": "self.o4", "to": "a.i5" }
@@ -986,7 +986,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect complete one-to-many audio connection")
 {
     bunch_of_connected_instances(true);
 
-    const std::string input = R"(
+    const auto input = R"(
         {
             "audio_path_changes": [
                 { "op": "disconnect", "to": "a.i5" }
@@ -1025,7 +1025,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect single many-to-one audio connection")
 {
     bunch_of_connected_instances();
 
-    const std::string input = R"(
+    const auto input = R"(
         {
             "audio_path_changes": [
                 { "op": "disconnect", "from": "self.o2", "to": "b.i3" }
@@ -1058,7 +1058,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect complete many-to-one audio connection")
 {
     bunch_of_connected_instances(true);
 
-    const std::string input = R"(
+    const auto input = R"(
         {
             "audio_path_changes": [
                 { "op": "disconnect", "from": "self.o2" }
@@ -1098,7 +1098,7 @@ TEST_CASE_FIXTURE(Fixture, "Removing device in the middle also removes its conne
 {
     bunch_of_connected_instances(true);
 
-    const std::string input = R"(
+    const auto input = R"(
         { "audio_path_changes": [ { "op": "rm_instance", "name": "a" } ] })";
     settings.update(input);
 
@@ -1180,7 +1180,7 @@ TEST_CASE_FIXTURE(Fixture, "Removing root device also removes its connections")
 {
     bunch_of_connected_instances();
 
-    const std::string input = R"(
+    const auto input = R"(
         { "audio_path_changes": [ { "op": "rm_instance", "name": "self" } ] })";
     settings.update(input);
 
@@ -1202,7 +1202,7 @@ TEST_CASE_FIXTURE(Fixture, "Removing sink device also removes its connections")
 {
     bunch_of_connected_instances();
 
-    const std::string input = R"(
+    const auto input = R"(
         { "audio_path_changes": [ { "op": "rm_instance", "name": "e" } ] })";
     settings.update(input);
 
@@ -1229,7 +1229,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect all outgoing audio connections")
 {
     bunch_of_connected_instances(true);
 
-    const std::string input = R"(
+    const auto input = R"(
         { "audio_path_changes": [ { "op": "disconnect", "from": "self" } ] })";
     settings.update(input);
 
@@ -1262,7 +1262,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect all ingoing audio connections (single sou
 {
     bunch_of_connected_instances(true);
 
-    const std::string input = R"(
+    const auto input = R"(
         { "audio_path_changes": [ { "op": "disconnect", "to": "a" } ] })";
     settings.update(input);
 
@@ -1298,7 +1298,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect all ingoing audio connections (multiple s
 {
     bunch_of_connected_instances(true);
 
-    const std::string input = R"(
+    const auto input = R"(
         { "audio_path_changes": [ { "op": "disconnect", "to": "e" } ] })";
     settings.update(input);
 
@@ -1333,7 +1333,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect audio connections from one sink to specif
 {
     bunch_of_connected_instances(true);
 
-    const std::string input = R"(
+    const auto input = R"(
         { "audio_path_changes": [ { "op": "disconnect", "from": "self.o2", "to": "b" } ] })";
     settings.update(input);
 
@@ -1368,7 +1368,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect audio connections from all sinks to speci
 {
     bunch_of_connected_instances(true);
 
-    const std::string input = R"(
+    const auto input = R"(
         { "audio_path_changes": [ { "op": "disconnect", "from": "self", "to": "a.i5" } ] })";
     settings.update(input);
 
@@ -1403,7 +1403,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect all audio connections between two instanc
 {
     bunch_of_connected_instances(true);
 
-    const std::string input = R"(
+    const auto input = R"(
         { "audio_path_changes": [ { "op": "disconnect", "from": "b", "to": "e" } ] })";
     settings.update(input);
 
@@ -1437,7 +1437,7 @@ TEST_CASE_FIXTURE(Fixture, "Disconnect all audio connections")
 {
     bunch_of_connected_instances(true);
 
-    const std::string input = R"(
+    const auto input = R"(
         { "audio_path_changes": [ { "op": "disconnect" } ] })";
     settings.update(input);
 
@@ -1466,7 +1466,7 @@ TEST_CASE_FIXTURE(Fixture, "NOP reports are filtered out")
 {
     bunch_of_connected_instances(true);
 
-    const std::string input1 = R"(
+    const auto input1 = R"(
         {
             "audio_path_changes": [
                 { "op": "add_instance", "name": "mp", "id": "MP3100HV" },
@@ -1482,7 +1482,7 @@ TEST_CASE_FIXTURE(Fixture, "NOP reports are filtered out")
         })";
     settings.update(input1);
 
-    const std::string input2 = R"(
+    const auto input2 = R"(
         { "audio_path_changes": [ { "op": "rm_instance", "name": "mp" } ] })";
     settings.update(input2);
 
@@ -1496,7 +1496,7 @@ TEST_CASE_FIXTURE(Fixture, "NOP reports are filtered out")
 
 TEST_CASE_FIXTURE(Fixture, "Reintroduction of instances is reported")
 {
-    const std::string input = R"(
+    const auto input = R"(
         {
             "audio_path_changes": [
                 { "op": "clear_instances" },

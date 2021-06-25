@@ -179,7 +179,7 @@ TEST_CASE_FIXTURE(Fixture, "Passing empty changes has no side effects")
 
 TEST_CASE_FIXTURE(Fixture, "Settings update for CALA CDR")
 {
-    const std::string input = R"(
+    const auto input = R"(
         {
             "audio_path_changes": [
                 {
@@ -250,7 +250,7 @@ TEST_CASE_FIXTURE(Fixture, "Settings update for CALA CDR")
 
 TEST_CASE_FIXTURE(Fixture, "Tone control override in CALA CDR")
 {
-    const std::string init_with_tone_control_enabled = R"(
+    const auto init_with_tone_control_enabled = R"(
         {
             "audio_path_changes": [
                 {
@@ -314,7 +314,7 @@ TEST_CASE_FIXTURE(Fixture, "Tone control override in CALA CDR")
     roon_update.check();
 
     /* switching off tone control suppresses equalizer settings */
-    const std::string disable_tone_control = R"(
+    const auto disable_tone_control = R"(
         {
             "audio_path_changes": [{
                 "op": "update", "element": "self.dsp",
@@ -347,7 +347,7 @@ TEST_CASE_FIXTURE(Fixture, "Tone control override in CALA CDR")
 
     /* switching tone control back on emits path including equalizer settings
      * with previously set values */
-    const std::string enable_tone_control = R"(
+    const auto enable_tone_control = R"(
         {
             "audio_path_changes": [{
                 "op": "update", "element": "self.dsp",
@@ -428,7 +428,7 @@ class CustomModels
 TEST_CASE_FIXTURE(CustomModels,
                   "Settings for simplest possible model with source, DSP, and sink")
 {
-    const std::string model_definition = R"(
+    const auto model_definition = R"(
         {
           "all_devices": {
             "MyDevice": {
@@ -487,7 +487,7 @@ TEST_CASE_FIXTURE(CustomModels,
 
     CHECK(models.loads(model_definition));
 
-    const std::string input = R"(
+    const auto input = R"(
         {
           "audio_path_changes": [
             { "op": "add_instance", "name": "self", "id": "MyDevice" },
@@ -520,7 +520,7 @@ TEST_CASE_FIXTURE(CustomModels,
 
 TEST_CASE_FIXTURE(CustomModels, "Settings for linear model with NOP elements")
 {
-    const std::string model_definition = R"(
+    const auto model_definition = R"(
         {
           "all_devices": {
             "MyDevice": {
@@ -583,7 +583,7 @@ TEST_CASE_FIXTURE(CustomModels, "Settings for linear model with NOP elements")
 
     CHECK(models.loads(model_definition));
 
-    const std::string input = R"(
+    const auto input = R"(
         {
           "audio_path_changes": [
             { "op": "add_instance", "name": "self", "id": "MyDevice" },
@@ -616,7 +616,7 @@ TEST_CASE_FIXTURE(CustomModels, "Settings for linear model with NOP elements")
 
 TEST_CASE_FIXTURE(CustomModels, "Subsequent changes of Roon-related settings")
 {
-    const std::string model_definition = R"(
+    const auto model_definition = R"(
         {
           "all_devices": {
             "MyDevice": {
@@ -679,7 +679,7 @@ TEST_CASE_FIXTURE(CustomModels, "Subsequent changes of Roon-related settings")
 
     CHECK(models.loads(model_definition));
 
-    const std::string init_self = R"(
+    const auto init_self = R"(
         {
           "audio_path_changes": [
             { "op": "add_instance", "name": "self", "id": "MyDevice" }
@@ -702,7 +702,7 @@ TEST_CASE_FIXTURE(CustomModels, "Subsequent changes of Roon-related settings")
     roon_update.check();
 
     /* balance changed */
-    const std::string balance_changed = R"(
+    const auto balance_changed = R"(
         {
           "audio_path_changes": [
             {
@@ -731,7 +731,7 @@ TEST_CASE_FIXTURE(CustomModels, "Subsequent changes of Roon-related settings")
     roon_update.check();
 
     /* volume changed */
-    const std::string volume_changed = R"(
+    const auto volume_changed = R"(
         {
           "audio_path_changes": [
             {
@@ -761,7 +761,7 @@ TEST_CASE_FIXTURE(CustomModels, "Subsequent changes of Roon-related settings")
     roon_update.check();
 
     /* balance back to neutral, volume unchanged */
-    const std::string balance_neutral = R"(
+    const auto balance_neutral = R"(
         {
           "audio_path_changes": [
             {
@@ -861,7 +861,7 @@ TEST_CASE_FIXTURE(ConnFixture, "Player is connected to one amplifier, headphones
 {
     /* the appliance we are running in introduces itself and tells us it is
      * configured to play from Bluetooth to the analog line output */
-    const std::string init_self = R"(
+    const auto init_self = R"(
         {
           "audio_path_changes": [
             { "op": "add_instance", "name": "self", "id": "Player" },
@@ -1057,7 +1057,7 @@ TEST_CASE_FIXTURE(ConnFixture, "Player is connected to one amplifier, headphones
 
 TEST_CASE_FIXTURE(ConnFixture, "Player is connected to one amplifier, single configuration")
 {
-    const std::string init_compound = R"(
+    const auto init_compound = R"(
         {
           "audio_path_changes": [
             { "op": "add_instance", "name": "self", "id": "Player" },
@@ -1121,7 +1121,7 @@ TEST_CASE_FIXTURE(ConnFixture, "Player is connected to one amplifier, single con
 
 TEST_CASE_FIXTURE(ConnFixture, "Player is connected to two amplifiers, switching amplifier inputs")
 {
-    const std::string init_compound = R"(
+    const auto init_compound = R"(
         {
           "audio_path_changes": [
             { "op": "add_instance", "name": "self", "id": "Player" },
