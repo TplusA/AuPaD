@@ -365,6 +365,136 @@ TEST_CASE_FIXTURE(Fixture, "Tone control override in CALA CDR")
     pm.report_changes(settings, changes);
 }
 
+TEST_CASE_FIXTURE(Fixture, "Set values of fake MP200HA compound")
+{
+    /* initialization: no update for Roon expected */
+    const auto init_device = R"(
+        {
+            "audio_path_changes": [
+                { "op": "clear_instances" },
+                { "op": "add_instance", "name": "self", "id": "MP200HA" }
+            ]
+        })";
+    settings.update(init_device);
+
+    ConfigStore::Changes changes;
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    pm.report_changes(settings, changes);
+    roon_update.check();
+
+    /* first audio path update: update for Roon expected */
+    const auto first_selection = R"(
+        {
+            "audio_path_changes": [
+                {
+                    "op": "update", "element": "self.input_select",
+                    "kv": { "sel": { "type": "s", "value": "strbo" }}
+                },
+                {
+                    "op": "update", "element": "self.hp1_out_enable",
+                    "kv": { "enable": { "type": "b", "value": true }}
+                },
+                {
+                    "op": "update", "element": "self.amp",
+                    "kv": { "enable": { "type": "b", "value": true }}
+                },
+                {
+                    "op": "update", "element": "self.bw_filter",
+                    "kv": { "mode": { "type": "s", "value": "wide" }}
+                }
+            ]
+        })";
+    settings.update(first_selection);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_path_after_init = R"(
+        [ { "type": "output", "method": "headphones", "quality": "lossless" } ]
+    )";
+
+    roon_update.expect(expected_path_after_init);
+    pm.report_changes(settings, changes);
+    changes.reset();
+    roon_update.check();
+
+    /* second audio path update with tone control: update for Roon expected */
+    const auto tone_control = R"(
+        {
+            "audio_path_changes": [
+                {
+                    "op": "update", "element": "self.tone_ctrl",
+                    "kv": {
+                        "bass": { "type": "Y", "value": 1 },
+                        "treble": { "type": "Y", "value": 2 },
+                        "loudness_enable": { "type": "b", "value": true },
+                        "tone_ctrl_enable": { "type": "b", "value": true }
+                    }
+                }
+            ]
+        })";
+    settings.update(tone_control);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_path_after_tone_control = R"(
+        [
+            { "type": "eq", "sub_type": "treble", "gain": 2.0, "quality": "enhanced" },
+            { "type": "eq", "sub_type": "bass", "gain": 1.0, "quality": "enhanced" },
+            { "type": "t+a", "sub_type": "loudness", "quality": "enhanced" },
+            { "type": "output", "method": "headphones", "quality": "lossless" }
+        ]
+    )";
+
+    roon_update.expect(expected_path_after_tone_control);
+    pm.report_changes(settings, changes);
+    changes.reset();
+    roon_update.check();
+
+    /* third audio path update, volume control: update for Roon expected */
+    const auto volume_control = R"(
+        {
+            "audio_path_changes": [
+                {
+                    "op": "update", "element": "self.volume_ctrl",
+                    "kv": {
+                        "volume": { "type": "Y", "value": 65 },
+                        "balance": { "type": "Y", "value": 15 }
+                    }
+                }
+            ]
+        })";
+    settings.update(volume_control);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_path_after_volume_control = R"(
+        [
+            { "type": "analog_volume", "gain": -25.0, "quality": "lossless" },
+            { "type": "balance", "value": 0.17647058823529416, "quality": "lossless" },
+            { "type": "eq", "sub_type": "treble", "gain": 2.0, "quality": "enhanced" },
+            { "type": "eq", "sub_type": "bass", "gain": 1.0, "quality": "enhanced" },
+            { "type": "t+a", "sub_type": "loudness", "quality": "enhanced" },
+            { "type": "output", "method": "headphones", "quality": "lossless" }
+        ]
+    )";
+
+    roon_update.expect(expected_path_after_volume_control);
+    pm.report_changes(settings, changes);
+}
+
 class CustomModels
 {
   protected:

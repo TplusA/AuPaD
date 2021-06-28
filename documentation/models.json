@@ -1,5 +1,327 @@
 {
     "all_devices": {
+        "MP200HA": {
+            "audio_sources": [
+                { "id": "digital_in_1" },
+                { "id": "digital_in_2" },
+                { "id": "digital_in_3" },
+                { "id": "tuner_fm" },
+                { "id": "tuner_dab" },
+                { "id": "bluetooth" },
+                { "id": "disc_drive" },
+                { "id": "strbo_i2s" },
+                { "id": "usb_hdd",      "parent": "strbo_i2s" },
+                { "id": "usb_wlan",     "parent": "strbo_i2s" },
+                { "id": "usb_ethernet", "parent": "strbo_i2s" },
+                { "id": "usb_front",    "parent": "strbo_i2s" }
+            ],
+            "audio_sinks": [
+                { "id": "digital_out" },
+                { "id": "headphone_out1", "roon": { "rank": 0, "method": "headphones" } },
+                { "id": "headphone_out2", "roon": { "rank": 1, "method": "headphones" } },
+                { "id": "headphone_out3", "roon": { "rank": 2, "method": "headphones" } }
+            ],
+            "elements": [
+                {
+                    "id": "input_select",
+                    "element": {
+                        "description": "Selects audio source",
+                        "stereo_inputs": 8,
+                        "controls": {
+                            "sel": {
+                                "type": "choice",
+                                "choices": [
+                                    "d1", "d2", "d3", "tuner_fm", "tuner_dab", "bt", "dd", "strbo"
+                                ]
+                            }
+                        }
+                    }
+                },
+                {
+                    "id": "hp1_out_enable",
+                    "element": {
+                        "label": "Headphone Out 1 Enable",
+                        "controls": { "enable": { "type": "on_off" } }
+                    }
+                },
+                {
+                    "id": "hp2_out_enable",
+                    "element": {
+                        "label": "Headphone Out 2 Enable",
+                        "controls": { "enable": { "type": "on_off" } }
+                    }
+                },
+                {
+                    "id": "hp3_out_enable",
+                    "element": {
+                        "label": "Headphone Out 1 Enable",
+                        "controls": { "enable": { "type": "on_off" } }
+                    }
+                },
+                {
+                    "id": "volume_ctrl",
+                    "element": {
+                        "description": "Controls volume with balance",
+                        "controls": {
+                            "volume": {
+                                "type": "range", "value_type": "Y",
+                                "min": 0, "max": 90, "step": 1, "scale": "steps",
+                                "neutral_setting": 90,
+                                "roon": {
+                                    "rank": 0,
+                                    "template": {
+                                        "type": "analog_volume",
+                                        "quality": "lossless"
+                                    },
+                                    "value_name": "gain",
+                                    "value_mapping": {
+                                        "type": "to_range",
+                                        "value_type": "d",
+                                        "from": -90,
+                                        "to": 0
+                                    }
+                                }
+                            },
+                            "balance": {
+                                "type": "range", "value_type": "Y",
+                                "min": -85, "max": 85, "step": 1, "scale": "steps",
+                                "neutral_setting": 0,
+                                "roon": {
+                                    "rank": 1,
+                                    "template": {
+                                        "type": "balance",
+                                        "quality": "lossless"
+                                    },
+                                    "value_name": "value",
+                                    "value_mapping": {
+                                        "type": "to_range",
+                                        "value_type": "d",
+                                        "from": -1.0,
+                                        "to": 1.0
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "id": "dac",
+                    "element": { "description": "PCM/DSD DAC" }
+                },
+                {
+                    "id": "dsp",
+                    "element": { "description": "Digital Signal Processor" }
+                },
+                {
+                    "id": "amp",
+                    "element": {
+                        "description": "Amplifier",
+                        "controls": { "enable": { "type": "on_off" } }
+                    }
+                },
+                {
+                    "id": "tone_ctrl",
+                    "element": {
+                        "label": "Tone Control",
+                        "description": "Controls the treble and bass of the signal",
+                        "controls": {
+                            "tone_ctrl_enable": { "type": "on_off" },
+                            "treble": {
+                                "label": "Treble",
+                                "description": "Treble setting",
+                                "type": "range", "value_type": "Y",
+                                "min": -15, "max": 15, "step": 1, "scale": "steps",
+                                "neutral_setting": 0,
+                                "roon": {
+                                    "rank": 0,
+                                    "template": {
+                                        "type": "eq",
+                                        "quality": "enhanced",
+                                        "sub_type": "treble"
+                                    },
+                                    "value_name": "gain",
+                                    "value_mapping": {
+                                        "type": "select",
+                                        "value_type": "d",
+                                        "select": "tone_ctrl@tone_ctrl_enable",
+                                        "mapping_table": {
+                                            "on":  { "type": "direct" },
+                                            "off": { "type": "suppress" }
+                                        }
+                                    }
+                                }
+                            },
+                            "bass": {
+                                "label": "Bass",
+                                "description": "Bass setting",
+                                "type": "range", "value_type": "Y",
+                                "min": -6, "max": 8, "step": 1, "scale": "steps",
+                                "neutral_setting": 0,
+                                "roon": {
+                                    "rank": 1,
+                                    "template": {
+                                        "type": "eq",
+                                        "quality": "enhanced",
+                                        "sub_type": "bass"
+                                    },
+                                    "value_name": "gain",
+                                    "value_mapping": {
+                                        "type": "select",
+                                        "value_type": "d",
+                                        "select": "tone_ctrl@tone_ctrl_enable",
+                                        "mapping_table": {
+                                            "on":  { "type": "direct" },
+                                            "off": { "type": "suppress" }
+                                        }
+                                    }
+                                }
+                            },
+                            "loudness_enable": {
+                                "type": "on_off",
+                                "roon": {
+                                    "rank": 2,
+                                    "template": {
+                                        "type": "t+a",
+                                        "quality": "enhanced",
+                                        "sub_type": "loudness"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "id": "bw_filter",
+                    "element": {
+                        "label": "Bandwidth",
+                        "controls": {
+                            "mode": {
+                                "type": "choice",
+                                "choices": [ "wide", "normal" ]
+                            }
+                        }
+                    }
+                }
+            ],
+            "audio_signal_paths": [
+                {
+                    "connections": {
+                        "digital_in_1":      "input_select.in0",
+                        "digital_in_2":      "input_select.in1",
+                        "digital_in_3":      "input_select.in2",
+                        "tuner_fm":          "input_select.in3",
+                        "tuner_dab":         "input_select.in4",
+                        "bluetooth":         "input_select.in5",
+                        "disc_drive":        "input_select.in6",
+                        "strbo_i2s":         "input_select.in7",
+                        "input_select":      [ "digital_out", "dsp" ],
+                        "dsp"         :      "dac",
+                        "dac"         :      "bw_filter",
+                        "bw_filter"   :      "volume_ctrl",
+                        "volume_ctrl" :      "tone_ctrl",
+                        "tone_ctrl"   :      "amp",
+                        "amp": [
+                            "hp1_out_enable",
+                            "hp2_out_enable",
+                            "hp3_out_enable"
+                        ],
+                        "hp1_out_enable": "headphone_out1",
+                        "hp2_out_enable": "headphone_out2",
+                        "hp3_out_enable": "headphone_out3"
+                    }
+                },
+                {
+                    "io_mapping": {
+                        "select": "input_select@sel",
+                        "mapping": "mux"
+                    }
+                },
+                {
+                    "io_mapping": {
+                        "select": "hp1_out_enable@enable",
+                        "mapping": "table",
+                        "mapping_table": {
+                            "on":  [ "in0", "out0" ],
+                            "off": [ "in0", null ]
+                        }
+                    }
+                },
+                {
+                    "io_mapping": {
+                        "select": "hp2_out_enable@enable",
+                        "mapping": "table",
+                        "mapping_table": {
+                            "on":  [ "in0", "out0" ],
+                            "off": [ "in0", null ]
+                        }
+                    }
+                },
+                {
+                    "io_mapping": {
+                        "select": "hp3_out_enable@enable",
+                        "mapping": "table",
+                        "mapping_table": {
+                            "on":  [ "in0", "out0" ],
+                            "off": [ "in0", null ]
+                        }
+                    }
+                }
+            ],
+            "signal_types": [
+                {
+                    "elements": [
+                        "digital_in_1", "digital_in_2", "digital_in_3",
+                        "strbo_i2s", "tuner_fm", "tuner_dab", "bluetooth",
+                        "disc_drive", "input_select.out0", "input_select.out1"
+                    ],
+                    "output_type": "pcm"
+                },
+                {
+                    "elements": [ "digital_out" ],
+                    "input_type": "pcm"
+                },
+                {
+                    "elements": [ "headphone_out1", "headphone_out2", "headphone_out3" ],
+                    "input_type": "analog"
+                }
+            ],
+            "usb_connectors": [
+                {
+                    "id": "ethernet",
+                    "label": "Ethernet",
+                    "device_path": "/sys/bus/usb/devices/1-1.1:1.0",
+                    "location": "internal",
+                    "audio_source": "usb_ethernet"
+                },
+                {
+                    "id": "wlan",
+                    "label": "WLAN",
+                    "device_path": "/sys/bus/usb/devices/1-1.2:1.0",
+                    "location": "internal",
+                    "audio_source": "usb_wlan"
+                },
+                {
+                    "id": "usb1",
+                    "label": "USB 1",
+                    "device_path": "/sys/bus/usb/devices/1-1.3:1.0",
+                    "location": "rear",
+                    "audio_source": "usb_1"
+                },
+                {
+                    "id": "usb2",
+                    "label": "USB 2",
+                    "device_path": "/sys/bus/usb/devices/1-1.4:1.0",
+                    "location": "rear",
+                    "audio_source": "usb_2"
+                },
+                {
+                    "id": "internal",
+                    "label": "Unconnected",
+                    "device_path": "/sys/bus/usb/devices/1-1.4:1.0",
+                    "location": "none"
+                }
+            ]
+        },
         "MP3100HV": {
             "audio_sources": [
                 { "id": "digital_in_1" },
