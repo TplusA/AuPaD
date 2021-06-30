@@ -365,14 +365,14 @@ TEST_CASE_FIXTURE(Fixture, "Tone control override in CALA CDR")
     pm.report_changes(settings, changes);
 }
 
-TEST_CASE_FIXTURE(Fixture, "Set values of fake MP200HA compound")
+TEST_CASE_FIXTURE(Fixture, "Set values of fake MP200 compound")
 {
     /* initialization: no update for Roon expected */
     const auto init_device = R"(
         {
             "audio_path_changes": [
                 { "op": "clear_instances" },
-                { "op": "add_instance", "name": "self", "id": "MP200HA" }
+                { "op": "add_instance", "name": "self", "id": "MP200" }
             ]
         })";
     settings.update(init_device);

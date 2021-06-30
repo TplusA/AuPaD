@@ -1,6 +1,6 @@
 {
     "all_devices": {
-        "MP200HA": {
+        "MP200": {
             "audio_sources": [
                 { "id": "digital_in_1" },
                 { "id": "digital_in_2" },
@@ -17,9 +17,10 @@
             ],
             "audio_sinks": [
                 { "id": "digital_out" },
-                { "id": "headphone_out1", "roon": { "rank": 0, "method": "headphones" } },
-                { "id": "headphone_out2", "roon": { "rank": 1, "method": "headphones" } },
-                { "id": "headphone_out3", "roon": { "rank": 2, "method": "headphones" } }
+                { "id": "headphone_out1",  "roon": { "rank": 3, "method": "headphones" } },
+                { "id": "headphone_out2",  "roon": { "rank": 2, "method": "headphones" } },
+                { "id": "headphone_out3",  "roon": { "rank": 1, "method": "headphones" } },
+                { "id": "analog_line_out", "roon": { "rank": 0, "method": "analog"     } }
             ],
             "elements": [
                 {
@@ -55,6 +56,13 @@
                     "id": "hp3_out_enable",
                     "element": {
                         "label": "Headphone Out 1 Enable",
+                        "controls": { "enable": { "type": "on_off" } }
+                    }
+                },
+                {
+                    "id": "analog_out_enable",
+                    "element": {
+                        "label": "Analog Out Enable",
                         "controls": { "enable": { "type": "on_off" } }
                     }
                 },
@@ -220,14 +228,11 @@
                         "bw_filter"   :      "volume_ctrl",
                         "volume_ctrl" :      "tone_ctrl",
                         "tone_ctrl"   :      "amp",
-                        "amp": [
-                            "hp1_out_enable",
-                            "hp2_out_enable",
-                            "hp3_out_enable"
-                        ],
-                        "hp1_out_enable": "headphone_out1",
-                        "hp2_out_enable": "headphone_out2",
-                        "hp3_out_enable": "headphone_out3"
+                        "amp"         :       [ "hp1_out_enable", "hp2_out_enable", "hp3_out_enable", "analog_out_enable"],
+                        "hp1_out_enable":    "headphone_out1",
+                        "hp2_out_enable":    "headphone_out2",
+                        "hp3_out_enable":    "headphone_out3",
+                        "analog_out_enable": "analog_line_out"
                     }
                 },
                 {
@@ -265,6 +270,16 @@
                             "off": [ "in0", null ]
                         }
                     }
+                },
+                {
+                    "io_mapping": {
+                        "select": "analog_out_enable@enable",
+                        "mapping": "table",
+                        "mapping_table": {
+                            "on":  [ "in0", "out0" ],
+                            "off": [ "in0", null ]
+                        }
+                    }
                 }
             ],
             "signal_types": [
@@ -281,7 +296,7 @@
                     "input_type": "pcm"
                 },
                 {
-                    "elements": [ "headphone_out1", "headphone_out2", "headphone_out3" ],
+                    "elements": [ "headphone_out1", "headphone_out2", "headphone_out3", "analog_line_out"],
                     "input_type": "analog"
                 }
             ],
