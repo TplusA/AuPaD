@@ -33,7 +33,131 @@
 #include "model_parsing_utils_json.hh"
 #include "messages.h"
 
-const uint16_t ClientPlugin::Roon::Cache::INVALID_RANK;
+class Cache
+{
+  public:
+    static constexpr auto INVALID_RANK = std::numeric_limits<uint16_t>::max();
+
+  private:
+    ModelCompliant::CompoundSignalPath path_;
+    uint16_t path_rank_;
+    std::string path_output_method_;
+    std::vector<std::pair<nlohmann::json,
+                const StaticModels::Elements::Control *>> reported_fragments_;
+    std::unordered_map<std::string, unsigned int> elem_to_frag_index_;
+
+  public:
+    Cache(const Cache &) = delete;
+    Cache(Cache &&) = default;
+    Cache &operator=(const Cache &) = delete;
+    Cache &operator=(Cache &&) = default;
+
+    explicit Cache():
+        path_rank_(INVALID_RANK)
+    {}
+
+    bool clear()
+    {
+        const bool result = !path_.empty();
+        path_.clear();
+        path_rank_ = INVALID_RANK;
+        path_output_method_.clear();
+        reported_fragments_.clear();
+        elem_to_frag_index_.clear();
+        return result;
+    }
+
+    bool empty() const { return path_.empty(); }
+
+    bool put_path(const ModelCompliant::CompoundSignalPathTracker &spt,
+                  const ModelCompliant::CompoundSignalPath &path,
+                  const std::pair<uint16_t, std::string> *path_rank_and_method)
+    {
+        if(path_rank_and_method == nullptr)
+            return false;
+
+        const auto &rm(*path_rank_and_method);
+
+        if(rm.first >= path_rank_)
+        {
+            if(rm.first == path_rank_ && rm.first != INVALID_RANK)
+                msg_error(0, LOG_WARNING,
+                          "There are multiple equally ranked signal paths "
+                          "(reporting only one of them to Roon)");
+
+            return false;
+        }
+
+        path_ = spt.mk_self_contained_path(path);
+        path_rank_ = rm.first;
+        path_output_method_ = get_checked_output_method(rm.second);
+        reported_fragments_.clear();
+        elem_to_frag_index_.clear();
+        return true;
+    }
+
+    const auto &get_path() const { return path_; }
+
+    const std::string &get_output_method_id() const { return path_output_method_; }
+
+    bool contains(const std::string &element_name) const
+    {
+        return elem_to_frag_index_.find(element_name) != elem_to_frag_index_.end();
+    }
+
+    void append_fragment(std::string &&element_name,
+                         std::pair<nlohmann::json,
+                         const StaticModels::Elements::Control *> &&fragment)
+    {
+        elem_to_frag_index_[std::move(element_name)] = reported_fragments_.size();
+        reported_fragments_.emplace_back(std::move(fragment));
+    }
+
+    void update_fragment(const std::string &element_name,
+                         nlohmann::json &&fragment)
+    {
+        reported_fragments_.at(elem_to_frag_index_.at(element_name)).first =
+            std::move(fragment);
+    }
+
+    std::pair<nlohmann::json, const StaticModels::Elements::Control *> &
+    lookup_fragment(const std::string &element_name)
+    {
+        return reported_fragments_.at(elem_to_frag_index_.at(element_name));
+    }
+
+    nlohmann::json collect_fragments() const
+    {
+        auto result = nlohmann::json::array();
+
+        for(const auto &it : reported_fragments_)
+            if(it.first != nullptr)
+                result.push_back(it.first);
+
+        return result;
+    }
+
+  private:
+    static const std::string &get_checked_output_method(const std::string &method)
+    {
+        static const std::set<std::string> valid_methods
+        {
+            "aes", "alsa", "analog", "analog_digital", "asio",
+            "digital", "headphones", "i2s", "other", "speakers", "usb",
+        };
+
+        if(valid_methods.find(method) != valid_methods.end())
+            return method;
+
+        BUG("Invalid Roon output method \"%s\" in audio path sink "
+            "(replaced by \"other\")", method.c_str());
+
+        static const std::string fallback("other");
+        return fallback;
+    };
+};
+
+const uint16_t Cache::INVALID_RANK;
 
 void ClientPlugin::Roon::registered()
 {
@@ -457,19 +581,19 @@ determine_path_rank_and_output_method(
 
     if(sink == nullptr)
     {
-        ranks.emplace(sink, std::make_pair(ClientPlugin::Roon::Cache::INVALID_RANK, ""));
+        ranks.emplace(sink, std::make_pair(Cache::INVALID_RANK, ""));
         return nullptr;
     }
 
     const auto it(sink->original_definition_.find("roon"));
     if(it == sink->original_definition_.end())
     {
-        ranks.emplace(sink, std::make_pair(ClientPlugin::Roon::Cache::INVALID_RANK, ""));
+        ranks.emplace(sink, std::make_pair(Cache::INVALID_RANK, ""));
         return nullptr;
     }
 
     auto rank(StaticModels::Utils::get<uint16_t>(*it, "rank",
-                        uint16_t(ClientPlugin::Roon::Cache::INVALID_RANK)));
+                                                 uint16_t(Cache::INVALID_RANK)));
     auto output_method(StaticModels::Utils::get<std::string>(*it, "method", ""));
 
     if(output_method.empty())
@@ -501,8 +625,7 @@ collect_ranked_controls(const StaticModels::DeviceModel &device_model,
 }
 
 static void fill_cache_with_values_from_device_context(
-        const ConfigStore::SettingsIterator &settings_iter,
-        ClientPlugin::Roon::Cache &cache)
+        const ConfigStore::SettingsIterator &settings_iter, Cache &cache)
 {
     /* fill in the values we have in the current device context, leave the rest
      * of the values the way they are */
@@ -542,41 +665,7 @@ static void fill_cache_with_values_from_device_context(
     }
 }
 
-static bool update_cache_with_values_from_device_context(
-    const ConfigStore::Settings &settings,
-    const ConfigStore::Changes &changes,
-    ClientPlugin::Roon::Cache &cache)
-{
-    bool result = false;
-    const ConfigStore::SettingsIterator si(settings);
-
-    changes.for_each_changed_value(
-        [&si, &cache, &result]
-        (const auto &name, const auto &old_value, const auto &new_value)
-        {
-            if(!cache.contains(name))
-                return;
-
-            const auto &device_and_qualified_control(
-                StaticModels::Utils::split_qualified_name(name));
-            const auto &dev(si.with_device(std::get<0>(device_and_qualified_control)));
-
-            if(new_value.is_of_type(ConfigStore::ValueType::VT_VOID))
-                cache.update_fragment(name, nullptr);
-            else
-            {
-                auto &entry(cache.lookup_fragment(name));
-                patch_entry_for_name(dev, name, new_value,
-                                     *entry.second, entry.first);
-            }
-
-            result = true;
-       });
-
-    return result;
-}
-
-static nlohmann::json generate_report_from_cache(const ClientPlugin::Roon::Cache &cache)
+static nlohmann::json generate_report_from_cache(const Cache &cache)
 {
     auto output = cache.collect_fragments();
 
@@ -594,12 +683,10 @@ static nlohmann::json generate_report_from_cache(const ClientPlugin::Roon::Cache
 static nlohmann::json
 compute_sorted_result(const ConfigStore::SettingsIterator &settings_iter,
                       const std::string &root_device_instance_name,
-                      ClientPlugin::Roon::Cache &cache,
+                      Cache &cache,
                       std::unordered_map<const StaticModels::Elements::AudioSink *,
                                          std::pair<uint16_t, std::string>> &ranks)
 {
-    cache.clear();
-
     ModelCompliant::CompoundSignalPathTracker spt(settings_iter);
 
     /* find active path with highest rank */
@@ -639,94 +726,13 @@ compute_sorted_result(const ConfigStore::SettingsIterator &settings_iter,
     return generate_report_from_cache(cache);
 }
 
-static bool is_root_appliance_unchanged(const ConfigStore::Changes &changes)
-{
-    bool unchanged = true;
-
-    changes.for_each_changed_device(
-        [&unchanged]
-        (const std::string &device_name, bool was_added)
-        {
-            if(device_name == "self")
-                unchanged = false;
-        });
-
-    return unchanged;
-}
-
-static bool is_signal_path_topology_unchanged(
-        const ConfigStore::Settings &settings,
-        const ModelCompliant::CompoundSignalPath &path)
-{
-    try
-    {
-        const ConfigStore::SettingsIterator si(settings);
-        ModelCompliant::CompoundSignalPathTracker spt(si);
-        bool unchanged = false;
-
-        spt.enumerate_compound_signal_paths(
-            "self",
-            [&path, &unchanged] (const auto &active_path)
-            {
-                unchanged = active_path == path;
-                return false;
-            });
-
-        return unchanged;
-    }
-    catch(const std::out_of_range &e)
-    {
-        return false;
-    }
-}
-
 void ClientPlugin::Roon::report_changes(const ConfigStore::Settings &settings,
                                         const ConfigStore::Changes &changes) const
 {
-    bool cache_cleared = false;
-
-    if(!is_root_appliance_unchanged(changes) ||
-       !is_signal_path_topology_unchanged(settings, cache_.get_path()))
-    {
-        /* structural changes ahead, need to wipe out cached data */
-        cache_cleared = cache_.clear();
-    }
-
     std::string report;
     std::vector<std::string> extra;
 
-    if(cache_.empty())
-    {
-        /* no signal path seen before, so try to compute afresh */
-        full_report(settings, report, extra);
-
-        if(!cache_.empty() || cache_cleared)
-            emit_audio_signal_path_fn_(report, extra);
-
-        return;
-    }
-
-    /* have information about previously seen, unchanged signal path, so just
-     * patch the changed values */
-    bool have_changes = false;
-    try
-    {
-        have_changes =
-            update_cache_with_values_from_device_context(settings, changes, cache_);
-    }
-    catch(const std::out_of_range &e)
-    {
-        BUG("Failed iterating device \"self\": %s", e.what());
-    }
-
-    if(!have_changes)
-        return;
-
-    const auto output = generate_report_from_cache(cache_);
-    if(output != nullptr)
-        report = output.dump();
-
-    if(!report.empty())
+    if(full_report(settings, report, extra))
         emit_audio_signal_path_fn_(report, extra);
 }
 
@@ -736,21 +742,26 @@ bool ClientPlugin::Roon::full_report(const ConfigStore::Settings &settings,
 {
     const ConfigStore::SettingsIterator si(settings);
     nlohmann::json output;
+    Cache cache;
 
     try
     {
-        output = compute_sorted_result(si, "self", cache_, ranks_);
+        output = compute_sorted_result(si, "self", cache, ranks_);
     }
     catch(const std::out_of_range &e)
     {
         /* have no data yet, but that's OK */
-        cache_.clear();
     }
 
-    if(output != nullptr)
-        report = output.dump();
-    else
-        report = "[]";
+    if(output == previous_roon_report_)
+    {
+        report.clear();
+        return false;
+    }
+
+    previous_roon_report_ =
+        output != nullptr ? output : nlohmann::json::array();
+    report = previous_roon_report_.dump();
 
     return true;
 }
