@@ -495,6 +495,139 @@ TEST_CASE_FIXTURE(Fixture, "Set values of fake MP200 compound")
     pm.report_changes(settings, changes);
 }
 
+TEST_CASE_FIXTURE(Fixture,
+                  "Roon report is sent if a switching option makes otherwise "
+                  "unchanged values visible or invisible")
+{
+    /* initialization: tone control disabled, update for Roon expected */
+    const auto init_device = R"(
+        {
+            "audio_path_changes": [
+                { "op": "clear_instances" },
+                { "op": "add_instance", "name": "self", "id": "MP200" },
+                {
+                    "op": "update", "element": "self.input_select",
+                    "kv": { "sel": { "type": "s", "value": "strbo" }}
+                },
+                {
+                    "op": "update", "element": "self.hp1_out_enable",
+                    "kv": { "enable": { "type": "b", "value": true }}
+                },
+                {
+                    "op": "update", "element": "self.amp",
+                    "kv": { "enable": { "type": "b", "value": true }}
+                },
+                {
+                    "op": "update", "element": "self.bw_filter",
+                    "kv": { "mode": { "type": "s", "value": "wide" }}
+                },
+                {
+                    "op": "update", "element": "self.tone_ctrl",
+                    "kv": {
+                        "bass": { "type": "Y", "value": 1 },
+                        "treble": { "type": "Y", "value": 2 },
+                        "loudness_enable": { "type": "b", "value": true }
+                    }
+                }
+            ]
+        })";
+    settings.update(init_device);
+
+    ConfigStore::Changes changes;
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_path_after_init = R"(
+        [
+            { "type": "t+a", "sub_type": "loudness", "quality": "enhanced" },
+            { "type": "output", "method": "headphones", "quality": "lossless" }
+        ]
+    )";
+
+    roon_update.expect(expected_path_after_init);
+    pm.report_changes(settings, changes);
+    changes.reset();
+    roon_update.check();
+
+    /* enable tone control: update with tone controls for Roon expected */
+    const auto tone_control_enable = R"(
+        {
+            "audio_path_changes": [
+                {
+                    "op": "update", "element": "self.tone_ctrl",
+                    "kv": { "tone_ctrl_enable": { "type": "b", "value": true } }
+                }
+            ]
+        })";
+    settings.update(tone_control_enable);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_path_after_tone_control_enable = R"(
+        [
+            { "type": "eq", "sub_type": "treble", "gain": 2.0, "quality": "enhanced" },
+            { "type": "eq", "sub_type": "bass", "gain": 1.0, "quality": "enhanced" },
+            { "type": "t+a", "sub_type": "loudness", "quality": "enhanced" },
+            { "type": "output", "method": "headphones", "quality": "lossless" }
+        ]
+    )";
+
+    roon_update.expect(expected_path_after_tone_control_enable);
+    pm.report_changes(settings, changes);
+    changes.reset();
+    roon_update.check();
+
+    /* disable tone control: update without bass and treble values for Roon
+     * expected */
+    const auto tone_control_disable = R"(
+        {
+            "audio_path_changes": [
+                {
+                    "op": "update", "element": "self.tone_ctrl",
+                    "kv": { "tone_ctrl_enable": { "type": "b", "value": false } }
+                }
+            ]
+        })";
+    settings.update(tone_control_disable);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    roon_update.expect(expected_path_after_init);
+    pm.report_changes(settings, changes);
+    changes.reset();
+    roon_update.check();
+
+    /* changing treble and bass does not trigger another Roon report */
+    const auto tone_values_change = R"(
+        {
+            "audio_path_changes": [
+                {
+                    "op": "update", "element": "self.tone_ctrl",
+                    "kv": {
+                        "bass": { "type": "Y", "value": 4 },
+                        "treble": { "type": "Y", "value": 5 }
+                    }
+                }
+            ]
+        })";
+    settings.update(tone_values_change);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    pm.report_changes(settings, changes);
+}
+
 class CustomModels
 {
   protected:
