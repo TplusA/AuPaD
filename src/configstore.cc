@@ -558,25 +558,26 @@ ConfigStore::Value::type_code_to_type(const std::string &type_code)
     return it->second;
 }
 
-void ConfigStore::Value::validate() const
+bool ConfigStore::type_check(const nlohmann::json &value, ValueType vt,
+                             bool throw_on_mismatch)
 {
-    switch(type_)
+    switch(vt)
     {
       case ValueType::VT_VOID:
-        if(value_.is_null())
-            return;
+        if(value.is_null())
+            return true;
 
         break;
 
       case ValueType::VT_ASCIIZ:
-        if(value_.is_string())
-            return;
+        if(value.is_string())
+            return true;
 
         break;
 
       case ValueType::VT_BOOL:
-        if(value_.is_boolean())
-            return;
+        if(value.is_boolean())
+            return true;
 
         break;
 
@@ -584,17 +585,17 @@ void ConfigStore::Value::validate() const
       case ValueType::VT_INT16:
       case ValueType::VT_INT32:
       case ValueType::VT_INT64:
-        if(!value_.is_number_integer())
+        if(!value.is_number_integer())
             break;
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wswitch-enum"
-        switch(type_)
+        switch(vt)
         {
-          case ValueType::VT_INT8:  range_check<ValueType::VT_INT8>(value_);  return;
-          case ValueType::VT_INT16: range_check<ValueType::VT_INT16>(value_); return;
-          case ValueType::VT_INT32: range_check<ValueType::VT_INT32>(value_); return;
-          case ValueType::VT_INT64: range_check<ValueType::VT_INT64>(value_); return;
+          case ValueType::VT_INT8:  range_check<ValueType::VT_INT8>(value);  return true;
+          case ValueType::VT_INT16: range_check<ValueType::VT_INT16>(value); return true;
+          case ValueType::VT_INT32: range_check<ValueType::VT_INT32>(value); return true;
+          case ValueType::VT_INT64: range_check<ValueType::VT_INT64>(value); return true;
           default: os_abort();
         }
 #pragma GCC diagnostic pop
@@ -605,17 +606,17 @@ void ConfigStore::Value::validate() const
       case ValueType::VT_UINT16:
       case ValueType::VT_UINT32:
       case ValueType::VT_UINT64:
-        if(!value_.is_number_integer() || !value_.is_number_unsigned())
+        if(!value.is_number_integer() || !value.is_number_unsigned())
             break;
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wswitch-enum"
-        switch(type_)
+        switch(vt)
         {
-          case ValueType::VT_UINT8:  range_check<ValueType::VT_UINT8>(value_);  return;
-          case ValueType::VT_UINT16: range_check<ValueType::VT_UINT16>(value_); return;
-          case ValueType::VT_UINT32: range_check<ValueType::VT_UINT32>(value_); return;
-          case ValueType::VT_UINT64: range_check<ValueType::VT_UINT64>(value_); return;
+          case ValueType::VT_UINT8:  range_check<ValueType::VT_UINT8>(value);  return true;
+          case ValueType::VT_UINT16: range_check<ValueType::VT_UINT16>(value); return true;
+          case ValueType::VT_UINT32: range_check<ValueType::VT_UINT32>(value); return true;
+          case ValueType::VT_UINT64: range_check<ValueType::VT_UINT64>(value); return true;
           default: os_abort();
         }
 #pragma GCC diagnostic pop
@@ -623,23 +624,27 @@ void ConfigStore::Value::validate() const
         break;
 
       case ValueType::VT_DOUBLE:
-        if(value_.is_number())
-            return;
+        if(value.is_number())
+            return true;
 
         break;
 
       case ValueType::VT_TA_FIX_POINT:
-        if(!value_.is_number())
+        if(!value.is_number())
             break;
 
-        if(FixPoint::is_in_range(value_.get<double>()))
-            return;
+        if(FixPoint::is_in_range(value.get<double>()))
+            return true;
 
         break;
     }
 
-    Error() << "mismatch between type code \"" << type_to_type_code(type_) <<
-        "\" and value \"" << value_ << "\"";
+    if(throw_on_mismatch)
+        Error()
+            << "mismatch between type code \"" << Value::type_to_type_code(vt) <<
+            "\" and value \"" << value << "\"";
+
+    return false;
 }
 
 void Device::add_connection(const std::string &sink_name,

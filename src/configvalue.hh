@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -53,6 +53,9 @@ enum class ValueType
 
     VT_LAST_VALUE = VT_TA_FIX_POINT,
 };
+
+bool type_check(const nlohmann::json &value, ValueType vt,
+                bool throw_on_mismatch = false);
 
 template <ValueType VT> struct ValueTypeTraits;
 
@@ -180,7 +183,7 @@ class Value
     }
 
   private:
-    void validate() const;
+    void validate() const { type_check(value_, type_, true); }
 };
 
 template <>
