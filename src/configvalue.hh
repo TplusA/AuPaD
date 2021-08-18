@@ -128,6 +128,31 @@ class Value
         return false;
     }
 
+    bool is_integer() const
+    {
+        switch(type_)
+        {
+          case ValueType::VT_VOID:
+          case ValueType::VT_ASCIIZ:
+          case ValueType::VT_BOOL:
+          case ValueType::VT_DOUBLE:
+          case ValueType::VT_TA_FIX_POINT:
+            break;
+
+          case ValueType::VT_INT8:
+          case ValueType::VT_UINT8:
+          case ValueType::VT_INT16:
+          case ValueType::VT_UINT16:
+          case ValueType::VT_INT32:
+          case ValueType::VT_UINT32:
+          case ValueType::VT_INT64:
+          case ValueType::VT_UINT64:
+            return true;
+        }
+
+        return false;
+    }
+
     const auto &get_value() const { return value_; }
     ValueType get_type() const { return type_; }
     char get_type_code() const { return type_to_type_code(type_); }

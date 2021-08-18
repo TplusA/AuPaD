@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2021  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -23,6 +23,7 @@
 #define ELEMENT_CONTROLS_HH
 
 #include "configvalue.hh"
+#include "maybe.hh"
 
 #include <string>
 
@@ -192,6 +193,82 @@ class Range: public Control
     const ConfigStore::Value step_;
     const ConfigStore::Value neutral_setting_;
 
+    struct SelectorSupport
+    {
+      private:
+        int64_t min_;
+        int64_t max_;
+        uint64_t step_;
+        uint64_t range_;
+
+      public:
+        unsigned int number_of_choices_;
+
+        SelectorSupport():
+            min_(0),
+            max_(0),
+            step_(0),
+            range_(0),
+            number_of_choices_(0)
+        {}
+
+        bool set(int64_t min, int64_t max, uint64_t step)
+        {
+            if(step == 0)
+                return false;
+
+            min_ = min;
+            max_ = max;
+            step_ = step;
+            range_ = max - min + 1;
+
+            const uint64_t temp = range_ > step_ ? range_ / step_ : 1;
+            if(temp > std::numeric_limits<unsigned int>::max())
+                return false;
+
+            number_of_choices_ = temp;
+            return true;
+        }
+
+        int64_t to_choice_value(unsigned int idx) const
+        {
+            const int64_t result = min_ + idx * step_;
+
+            if(result > max_)
+                Error() << "Index " << idx << " mapped to " << result
+                        << ", which is out of range [" << min_ << ", "
+                        << max_ << "]";
+
+            return result;
+        }
+
+        unsigned int to_selector_index(int64_t value) const
+        {
+            if(value < min_ || value > max_)
+                Error()
+                    << "Cannot map value " << value << " to selector index: "
+                    << "out of range [" << min_ << ", " << max_ << "]";
+
+            const uint64_t temp = value - min_;
+
+            if((temp % step_) != 0)
+                Error()
+                    << "Cannot map value " << value << " to selector index: "
+                    << "does not match step width " << step_;
+
+            return temp / step_;
+        }
+
+        void for_each_value(const ForEachChoiceFn &apply) const
+        {
+            unsigned int i = 0;
+            for(auto value = min_; value <= max_; value += step_)
+                apply(i++, std::to_string(value));
+        }
+    };
+
+    Maybe<SelectorSupport> selector_support_;
+
   public:
     Range(const Range &) = delete;
     Range(Range &&) = default;
@@ -232,6 +309,15 @@ class Range: public Control
                 Error() << "Neutral value is greater than minimum value "
                            "of control \"" << id_ << "\"";
         }
+
+        if(min_.is_integer())
+        {
+            auto &ss(selector_support_.get_rw());
+            if(ss.set(min_.get_as(ConfigStore::ValueType::VT_INT64),
+                      max_.get_as(ConfigStore::ValueType::VT_INT64),
+                      step_.get_as(ConfigStore::ValueType::VT_UINT64)))
+                selector_support_.set_known();
+        }
     }
 
     ConfigStore::ValueType get_value_type() const final override
@@ -248,24 +334,48 @@ class Range: public Control
 
     unsigned int get_number_of_choices() const final override
     {
-        Error() << "Ranges cannot be used as selector";
+        if(selector_support_.is_known())
+            return selector_support_->number_of_choices_;
+
+        Error() << "Non-integer ranges cannot be used as selector";
     }
 
     void for_each_choice(const ForEachChoiceFn &apply) const final override
     {
-        Error() << "Cannot enumerate range selectors";
+        if(selector_support_.is_known())
+            selector_support_->for_each_value(apply);
+
+        Error() << "Cannot enumerate non-integer range selectors";
     }
 
     unsigned int to_selector_index(const ConfigStore::Value &value) const
         final override
     {
-        return std::numeric_limits<unsigned int>::max();
+        if(!selector_support_.is_known())
+            return std::numeric_limits<unsigned int>::max();
+
+        if(value.is_integer())
+            return selector_support_->to_selector_index(
+                                        value.get_value().get<int64_t>());
+
+        if(value.is_of_type(ConfigStore::ValueType::VT_ASCIIZ))
+        {
+            const auto &s(value.get_value().get<std::string>());
+            return selector_support_->to_selector_index(std::stoll(s));
+        }
+
+        Error() << "Selector values for ranges must be integers or strings";
     }
 
     const std::string &index_to_choice_string(unsigned int idx) const
         final override
     {
-        Error() << "Cannot convert range index to string";
+        if(!selector_support_.is_known())
+            Error() << "Cannot convert non-integer range index to string";
+
+        static std::string buffer;
+        buffer = std::to_string(selector_support_->to_choice_value(idx));
+        return buffer;
     }
 
     const ConfigStore::Value &get_min() const { return min_; }
