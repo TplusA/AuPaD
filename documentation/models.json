@@ -220,6 +220,23 @@
                             }
                         }
                     }
+                },
+                {
+                    "id": "crossfeed",
+                    "element": {
+                        "controls": {
+                            "enable": {
+                                "type": "on_off",
+                                "roon": {
+                                    "template": {
+                                        "type": "t+a",
+                                        "sub_type": "crossfeed",
+                                        "quality": "enhanced"
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             ],
             "audio_signal_paths": [
@@ -239,7 +256,8 @@
                         "dac"         :      "bw_filter",
                         "bw_filter"   :      "volume_ctrl",
                         "volume_ctrl" :      "tone_ctrl",
-                        "tone_ctrl"   :      "amp",
+                        "tone_ctrl"   :      "crossfeed",
+                        "crossfeed"   :      "amp",
                         "amp"         :       [ "hp1_out_enable", "hp2_out_enable", "hp3_out_enable", "analog_out_enable"],
                         "hp1_out_enable":    "headphone_out1",
                         "hp2_out_enable":    "headphone_out2",

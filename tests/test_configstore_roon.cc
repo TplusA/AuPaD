@@ -447,6 +447,10 @@ TEST_CASE_FIXTURE(Fixture, "Set values of fake MP200 compound")
                         "loudness_enable": { "type": "b", "value": true },
                         "tone_ctrl_enable": { "type": "b", "value": true }
                     }
+                },
+                {
+                    "op": "update", "element": "self.crossfeed",
+                    "kv": { "enable": { "type": "b", "value": true }}
                 }
             ]
         })";
@@ -463,6 +467,7 @@ TEST_CASE_FIXTURE(Fixture, "Set values of fake MP200 compound")
             { "type": "eq", "sub_type": "treble", "gain": 2.0, "quality": "enhanced" },
             { "type": "eq", "sub_type": "bass", "gain": 1.0, "quality": "enhanced" },
             { "type": "t+a", "sub_type": "loudness", "quality": "enhanced" },
+            { "type": "t+a", "sub_type": "crossfeed", "quality": "enhanced" },
             { "type": "output", "method": "headphones", "quality": "lossless" }
         ]
     )";
@@ -472,7 +477,9 @@ TEST_CASE_FIXTURE(Fixture, "Set values of fake MP200 compound")
     changes.reset();
     roon_update.check();
 
-    /* third audio path update, volume control: update for Roon expected */
+    /* third audio path update, volume control and crossfeed: balance update
+     * and crossfeed update for Roon expected, analog volume update not
+     * expected */
     const auto volume_control = R"(
         {
             "audio_path_changes": [
@@ -482,6 +489,10 @@ TEST_CASE_FIXTURE(Fixture, "Set values of fake MP200 compound")
                         "volume": { "type": "Y", "value": 65 },
                         "balance": { "type": "Y", "value": 15 }
                     }
+                },
+                {
+                    "op": "update", "element": "self.crossfeed",
+                    "kv": { "enable": { "type": "b", "value": false }}
                 }
             ]
         })";
