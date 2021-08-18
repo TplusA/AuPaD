@@ -405,6 +405,10 @@ TEST_CASE_FIXTURE(Fixture, "Set values of fake MP200 compound")
                 {
                     "op": "update", "element": "self.bw_filter",
                     "kv": { "mode": { "type": "s", "value": "wide" }}
+                },
+                {
+                    "op": "update", "element": "self.syslink",
+                    "kv": { "mode": { "type": "s", "value": "HA 200" }}
                 }
             ]
         })";
@@ -416,7 +420,10 @@ TEST_CASE_FIXTURE(Fixture, "Set values of fake MP200 compound")
     }
 
     const auto expected_path_after_init = R"(
-        [ { "type": "output", "method": "headphones", "quality": "lossless" } ]
+        [
+            { "type": "t+a", "sub_type": "sys_link", "mode": "HA 200", "quality": "lossless" },
+            { "type": "output", "method": "headphones", "quality": "lossless" }
+        ]
     )";
 
     roon_update.expect(expected_path_after_init);
@@ -428,6 +435,10 @@ TEST_CASE_FIXTURE(Fixture, "Set values of fake MP200 compound")
     const auto tone_control = R"(
         {
             "audio_path_changes": [
+                {
+                    "op": "update", "element": "self.syslink",
+                    "kv": { "mode": { "type": "s", "value": "DAC 200"} }
+                },
                 {
                     "op": "update", "element": "self.tone_ctrl",
                     "kv": {
@@ -448,6 +459,7 @@ TEST_CASE_FIXTURE(Fixture, "Set values of fake MP200 compound")
 
     const auto expected_path_after_tone_control = R"(
         [
+            { "type": "t+a", "sub_type": "sys_link", "mode": "DAC 200", "quality": "lossless" },
             { "type": "eq", "sub_type": "treble", "gain": 2.0, "quality": "enhanced" },
             { "type": "eq", "sub_type": "bass", "gain": 1.0, "quality": "enhanced" },
             { "type": "t+a", "sub_type": "loudness", "quality": "enhanced" },
@@ -482,6 +494,7 @@ TEST_CASE_FIXTURE(Fixture, "Set values of fake MP200 compound")
 
     const auto expected_path_after_volume_control = R"(
         [
+            { "type": "t+a", "sub_type": "sys_link", "mode": "DAC 200", "quality": "lossless" },
             { "type": "balance", "value": 0.17647058823529416, "quality": "lossless" },
             { "type": "eq", "sub_type": "treble", "gain": 2.0, "quality": "enhanced" },
             { "type": "eq", "sub_type": "bass", "gain": 1.0, "quality": "enhanced" },

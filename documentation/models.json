@@ -67,6 +67,31 @@
                     }
                 },
                 {
+                    "id": "syslink",
+                    "element": {
+                        "label": "SYS link mode",
+                        "controls": {
+                            "mode": {
+                                "type": "choice",
+                                "choices": [ "HA 200", "DAC 200" ],
+                                "roon": {
+                                    "rank": 0,
+                                    "template": {
+                                        "type": "t+a",
+                                        "sub_type": "sys_link",
+                                        "quality": "lossless"
+                                    },
+                                    "value_name": "mode",
+                                    "value_mapping": {
+                                        "type": "direct",
+                                        "value_type": "s"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
                     "id": "volume_ctrl",
                     "element": {
                         "description": "Controls volume with balance",
@@ -208,7 +233,8 @@
                         "bluetooth":         "input_select.in5",
                         "disc_drive":        "input_select.in6",
                         "strbo_i2s":         "input_select.in7",
-                        "input_select":      [ "digital_out", "dsp" ],
+                        "input_select":      [ "digital_out", "syslink" ],
+                        "syslink"     :      "dsp",
                         "dsp"         :      "dac",
                         "dac"         :      "bw_filter",
                         "bw_filter"   :      "volume_ctrl",
