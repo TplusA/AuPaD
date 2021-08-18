@@ -74,21 +74,7 @@
                             "volume": {
                                 "type": "range", "value_type": "Y",
                                 "min": 0, "max": 90, "step": 1, "scale": "steps",
-                                "neutral_setting": 90,
-                                "roon": {
-                                    "rank": 0,
-                                    "template": {
-                                        "type": "analog_volume",
-                                        "quality": "lossless"
-                                    },
-                                    "value_name": "gain",
-                                    "value_mapping": {
-                                        "type": "to_range",
-                                        "value_type": "d",
-                                        "from": -90,
-                                        "to": 0
-                                    }
-                                }
+                                "neutral_setting": 90
                             },
                             "balance": {
                                 "type": "range", "value_type": "Y",
