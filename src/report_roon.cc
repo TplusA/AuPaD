@@ -362,6 +362,62 @@ map_value_to_range(const std::string &name, const ConfigStore::Value &value,
     return std::make_pair(nlohmann::json(), AddResult::IGNORED);
 }
 
+static std::pair<nlohmann::json, AddResult>
+map_value_as_balance_slider(const std::string &name,
+                            const ConfigStore::Value &value,
+                            const nlohmann::json &mapping)
+{
+    if(!value.is_integer())
+    {
+        if(!value.is_of_type(ConfigStore::ValueType::VT_VOID))
+            msg_error(0, LOG_NOTICE,
+                      "Balance slider input must be integers (control %s)",
+                      name.c_str());
+
+        return std::make_pair(nlohmann::json(), AddResult::IGNORED);
+    }
+
+    switch(get_mapping_target_type(mapping))
+    {
+      case ConfigStore::ValueType::VT_VOID:
+        break;
+
+      case ConfigStore::ValueType::VT_ASCIIZ:
+        {
+            const int64_t input = value.get_value().get<int64_t>();
+
+            if(input < 0)
+                return std::make_pair(nlohmann::json("L" + std::to_string(-input)),
+                                      AddResult::ADDED);
+            else if(input > 0)
+                return std::make_pair(nlohmann::json("R" + std::to_string(input)),
+                                      AddResult::ADDED);
+        }
+
+        break;
+
+      case ConfigStore::ValueType::VT_BOOL:
+      case ConfigStore::ValueType::VT_INT8:
+      case ConfigStore::ValueType::VT_UINT8:
+      case ConfigStore::ValueType::VT_INT16:
+      case ConfigStore::ValueType::VT_UINT16:
+      case ConfigStore::ValueType::VT_INT32:
+      case ConfigStore::ValueType::VT_UINT32:
+      case ConfigStore::ValueType::VT_INT64:
+      case ConfigStore::ValueType::VT_UINT64:
+      case ConfigStore::ValueType::VT_DOUBLE:
+      case ConfigStore::ValueType::VT_TA_FIX_POINT:
+        msg_error(0, LOG_NOTICE,
+                  "Unsupported target mapping type \"%c\" for balance control %s",
+                  ConfigStore::Value::type_to_type_code(
+                                    get_mapping_target_type(mapping)),
+                  name.c_str());
+        break;
+    }
+
+    return std::make_pair(nlohmann::json(), AddResult::IGNORED);
+}
+
 enum class MappingType
 {
     INVALID,
@@ -371,6 +427,7 @@ enum class MappingType
     SELECT,
     CONST,
     CONST_TABLE,
+    BALANCE_SLIDER,
 };
 
 static MappingType mapping_type_name_to_mapping_type(const std::string &mname,
@@ -384,6 +441,7 @@ static MappingType mapping_type_name_to_mapping_type(const std::string &mname,
         { "select", MappingType::SELECT },
         { "const", MappingType::CONST },
         { "const_table", MappingType::CONST_TABLE },
+        { "balance_slider", MappingType::BALANCE_SLIDER },
     };
 
     try
@@ -416,6 +474,9 @@ map_value_primitive(const std::string &name, const ConfigStore::Value &value,
                 name, value,
                 dynamic_cast<const StaticModels::Elements::Range *>(&ctrl),
                 mapping);
+
+      case MappingType::BALANCE_SLIDER:
+        return map_value_as_balance_slider(name, value, mapping);
 
       case MappingType::SUPPRESS:
         return std::make_pair(nlohmann::json(), AddResult::IGNORED);
@@ -470,6 +531,7 @@ map_value_via_select_table(
       case MappingType::SUPPRESS:
       case MappingType::DIRECT:
       case MappingType::TO_RANGE:
+      case MappingType::BALANCE_SLIDER:
         return map_value_primitive(name, value, ctrl, mapping,
                                    value_mapping_type);
 
@@ -536,6 +598,7 @@ map_through_mapping_table(MappingType mapping_type,
       case MappingType::DIRECT:
       case MappingType::TO_RANGE:
       case MappingType::CONST:
+      case MappingType::BALANCE_SLIDER:
         BUG("what...");
         break;
 
@@ -566,6 +629,7 @@ map_value(const ConfigStore::DeviceContext &dev,
       case MappingType::SUPPRESS:
       case MappingType::DIRECT:
       case MappingType::TO_RANGE:
+      case MappingType::BALANCE_SLIDER:
         return map_value_primitive(name, value, ctrl, mapping,
                                    mapping_type);
 

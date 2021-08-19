@@ -516,6 +516,39 @@ TEST_CASE_FIXTURE(Fixture, "Set values of fake MP200 compound")
 
     roon_update.expect(expected_path_after_volume_control);
     pm.report_changes(settings, changes);
+    changes.reset();
+    roon_update.check();
+
+    /* forth audio path update: balance update to the left expected */
+    const auto balance_control = R"(
+        {
+            "audio_path_changes": [
+                {
+                    "op": "update", "element": "self.volume_ctrl",
+                    "kv": { "balance": { "type": "Y", "value": -27 }}
+                }
+            ]
+        })";
+    settings.update(balance_control);
+
+    {
+    ConfigStore::SettingsJSON js(settings);
+    CHECK(js.extract_changes(changes));
+    }
+
+    const auto expected_path_after_balance_control = R"(
+        [
+            { "type": "t+a", "sub_type": "sys_link", "mode": "DAC 200", "quality": "lossless" },
+            { "type": "balance", "value": "L27", "quality": "lossless" },
+            { "type": "eq", "sub_type": "treble", "gain": 2.0, "quality": "enhanced" },
+            { "type": "eq", "sub_type": "bass", "gain": 1.0, "quality": "enhanced" },
+            { "type": "t+a", "sub_type": "loudness", "quality": "enhanced" },
+            { "type": "output", "method": "headphones", "quality": "lossless" }
+        ]
+    )";
+
+    roon_update.expect(expected_path_after_balance_control);
+    pm.report_changes(settings, changes);
 }
 
 TEST_CASE_FIXTURE(Fixture,
