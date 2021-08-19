@@ -363,6 +363,7 @@ enum class MappingType
     DIRECT,
     TO_RANGE,
     SELECT,
+    CONST,
 };
 
 static MappingType mapping_type_name_to_mapping_type(const std::string &mname,
@@ -374,6 +375,7 @@ static MappingType mapping_type_name_to_mapping_type(const std::string &mname,
         { "direct", MappingType::DIRECT },
         { "to_range", MappingType::TO_RANGE },
         { "select", MappingType::SELECT },
+        { "const", MappingType::CONST },
     };
 
     try
@@ -412,10 +414,20 @@ map_value_primitive(const std::string &name, const ConfigStore::Value &value,
 
       case MappingType::INVALID:
       case MappingType::SELECT:
+      case MappingType::CONST:
         break;
     }
 
     return std::make_pair(nlohmann::json(), AddResult::IGNORED);
+}
+
+static std::pair<nlohmann::json, AddResult>
+map_value_constant(const nlohmann::json &value,
+                   ConfigStore::ValueType target_type)
+{
+    return ConfigStore::type_check(value, target_type)
+        ? std::make_pair(value, AddResult::ADDED)
+        : std::make_pair(nlohmann::json(), AddResult::IGNORED);
 }
 
 static std::pair<nlohmann::json, AddResult>
@@ -438,6 +450,9 @@ map_value(const ConfigStore::DeviceContext &dev,
       case MappingType::TO_RANGE:
         return map_value_primitive(name, value, ctrl, mapping,
                                    mapping_type, target_type);
+
+      case MappingType::CONST:
+        return map_value_constant(mapping.at("value"), target_type);
 
       case MappingType::SELECT:
         break;
@@ -467,8 +482,23 @@ map_value(const ConfigStore::DeviceContext &dev,
         {
             const auto value_mapping_type =
                 mapping_type_name_to_mapping_type(it->at("type"), name);
-            return map_value_primitive(name, value, ctrl, mapping,
-                                       value_mapping_type, target_type);
+
+            switch(value_mapping_type)
+            {
+              case MappingType::SUPPRESS:
+              case MappingType::DIRECT:
+              case MappingType::TO_RANGE:
+                return map_value_primitive(name, value, ctrl, mapping,
+                                           value_mapping_type, target_type);
+
+
+              case MappingType::CONST:
+                return map_value_constant(it->at("value"), target_type);
+
+              case MappingType::INVALID:
+              case MappingType::SELECT:
+                break;
+            }
         }
     }
 
