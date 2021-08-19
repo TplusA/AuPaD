@@ -370,6 +370,7 @@ enum class MappingType
     TO_RANGE,
     SELECT,
     CONST,
+    CONST_TABLE,
 };
 
 static MappingType mapping_type_name_to_mapping_type(const std::string &mname,
@@ -382,6 +383,7 @@ static MappingType mapping_type_name_to_mapping_type(const std::string &mname,
         { "to_range", MappingType::TO_RANGE },
         { "select", MappingType::SELECT },
         { "const", MappingType::CONST },
+        { "const_table", MappingType::CONST_TABLE },
     };
 
     try
@@ -421,6 +423,7 @@ map_value_primitive(const std::string &name, const ConfigStore::Value &value,
       case MappingType::INVALID:
       case MappingType::SELECT:
       case MappingType::CONST:
+      case MappingType::CONST_TABLE:
         break;
     }
 
@@ -475,10 +478,30 @@ map_value_via_select_table(
 
       case MappingType::INVALID:
       case MappingType::SELECT:
+      case MappingType::CONST_TABLE:
         break;
     }
 
     return std::make_pair(nlohmann::json(), AddResult::IGNORED);
+}
+
+static std::pair<nlohmann::json, AddResult>
+map_value_via_const_table(
+        const std::string &name, const ConfigStore::Value &value,
+        unsigned int sel_index,
+        const nlohmann::json &mapping)
+{
+    const auto &mapping_table(mapping.at("mapping_table"));
+
+    if(!mapping_table.is_array())
+    {
+        msg_error(0, LOG_NOTICE,
+                  "The mapping_table for control %s must be an array",
+                  name.c_str());
+        return std::make_pair(nlohmann::json(), AddResult::IGNORED);
+    }
+
+    return map_value_constant(mapping_table.at(sel_index), mapping);
 }
 
 static std::pair<nlohmann::json, AddResult>
@@ -519,6 +542,9 @@ map_through_mapping_table(MappingType mapping_type,
       case MappingType::SELECT:
         return map_value_via_select_table(name, value, sel_index,
                                           *selector_control, ctrl, mapping);
+
+      case MappingType::CONST_TABLE:
+        return map_value_via_const_table(name, value, sel_index, mapping);
     }
 
     return std::make_pair(nlohmann::json(), AddResult::IGNORED);
@@ -546,6 +572,7 @@ map_value(const ConfigStore::DeviceContext &dev,
       case MappingType::CONST:
         return map_value_constant(mapping.at("value"), mapping);
 
+      case MappingType::CONST_TABLE:
       case MappingType::SELECT:
         return map_through_mapping_table(mapping_type, dev,
                                          name, value, ctrl, mapping);
