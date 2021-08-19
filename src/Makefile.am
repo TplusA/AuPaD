@@ -32,7 +32,7 @@ bin_PROGRAMS = aupad
 aupad_SOURCES = \
     aupad.cc \
     configstore.hh device_models.hh json.hh error.hh \
-    element.hh element_controls.hh \
+    element.hh element_controls.hh maybe.hh \
     dbus.hh dbus.cc debug_levels.cc \
     monitor_manager.cc monitor_manager.hh \
     backtrace.h backtrace.c \
@@ -49,7 +49,7 @@ libconfigstore_la_SOURCES = \
     client_plugin.cc client_plugin_manager.hh client_plugin.hh \
     configstore_json.hh configstore_iter.hh configstore_changes.hh \
     device_models.cc device_models.hh element.hh element_controls.hh \
-    model_parsing_utils.hh model_parsing_utils_json.hh
+    model_parsing_utils.hh model_parsing_utils_json.hh maybe.hh
 libconfigstore_la_CPPFLAGS = $(AM_CPPFLAGS)
 libconfigstore_la_CXXFLAGS = $(AM_CXXFLAGS)
 

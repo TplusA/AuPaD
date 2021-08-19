@@ -356,29 +356,78 @@ map_value_to_range(const std::string &name, const ConfigStore::Value &value,
     return std::make_pair(nlohmann::json(), AddResult::IGNORED);
 }
 
+enum class MappingType
+{
+    INVALID,
+    SUPPRESS,
+    DIRECT,
+    TO_RANGE,
+    SELECT,
+    CONST,
+};
+
+static MappingType mapping_type_name_to_mapping_type(const std::string &mname,
+                                                     const std::string &cname)
+{
+    static const std::unordered_map<std::string, MappingType> tab
+    {
+        { "suppress", MappingType::SUPPRESS },
+        { "direct", MappingType::DIRECT },
+        { "to_range", MappingType::TO_RANGE },
+        { "select", MappingType::SELECT },
+        { "const", MappingType::CONST },
+    };
+
+    try
+    {
+        return tab.at(mname);
+    }
+    catch(...)
+    {
+        msg_error(0, LOG_NOTICE,
+                  "Unknown value mapping type \"%s\" for control %s",
+                  mname.c_str(), cname.c_str());
+        return MappingType::INVALID;
+    }
+}
+
 static std::pair<nlohmann::json, AddResult>
 map_value_primitive(const std::string &name, const ConfigStore::Value &value,
                     const StaticModels::Elements::Control &ctrl,
-                    const nlohmann::json &mapping, const nlohmann::json &mapping_type,
+                    const nlohmann::json &mapping, MappingType mapping_type,
                     ConfigStore::ValueType target_type)
 {
-    if(mapping_type == "direct")
+    switch(mapping_type)
+    {
+      case MappingType::DIRECT:
         return std::make_pair(value.get_as(target_type), AddResult::ADDED);
 
-    if(mapping_type == "to_range")
+      case MappingType::TO_RANGE:
         return
             map_value_to_range(
                 name, value,
                 dynamic_cast<const StaticModels::Elements::Range *>(&ctrl),
                 mapping, target_type);
 
-    if(mapping_type == "suppress")
+      case MappingType::SUPPRESS:
         return std::make_pair(nlohmann::json(), AddResult::IGNORED);
 
-    msg_error(0, LOG_NOTICE,
-              "Unknown value mapping type \"%s\" for control %s",
-              mapping_type.get<std::string>().c_str(), name.c_str());
+      case MappingType::INVALID:
+      case MappingType::SELECT:
+      case MappingType::CONST:
+        break;
+    }
+
     return std::make_pair(nlohmann::json(), AddResult::IGNORED);
+}
+
+static std::pair<nlohmann::json, AddResult>
+map_value_constant(const nlohmann::json &value,
+                   ConfigStore::ValueType target_type)
+{
+    return ConfigStore::type_check(value, target_type)
+        ? std::make_pair(value, AddResult::ADDED)
+        : std::make_pair(nlohmann::json(), AddResult::IGNORED);
 }
 
 static std::pair<nlohmann::json, AddResult>
@@ -387,13 +436,27 @@ map_value(const ConfigStore::DeviceContext &dev,
           const StaticModels::Elements::Control &ctrl,
           const nlohmann::json &mapping)
 {
-    const auto &mapping_type = mapping.at("type");
+    const auto &mapping_type_name = mapping.at("type");
     const auto &target_type_code = mapping.at("value_type").get<std::string>();
     const auto target_type = ConfigStore::Value::type_code_to_type(target_type_code);
+    const auto mapping_type =
+        mapping_type_name_to_mapping_type(mapping_type_name, name);
 
-    if(mapping_type != "select")
+    switch(mapping_type)
+    {
+      case MappingType::INVALID:
+      case MappingType::SUPPRESS:
+      case MappingType::DIRECT:
+      case MappingType::TO_RANGE:
         return map_value_primitive(name, value, ctrl, mapping,
                                    mapping_type, target_type);
+
+      case MappingType::CONST:
+        return map_value_constant(mapping.at("value"), target_type);
+
+      case MappingType::SELECT:
+        break;
+    }
 
     /* type of mapping depends on some control's value, so we match the current
      * value of the specified control against the given table of mappings */
@@ -416,8 +479,27 @@ map_value(const ConfigStore::DeviceContext &dev,
                         selector_control->index_to_choice_string(sel_index)));
 
         if(it != mapping_table.end())
-            return map_value_primitive(name, value, ctrl, mapping,
-                                       it->at("type"), target_type);
+        {
+            const auto value_mapping_type =
+                mapping_type_name_to_mapping_type(it->at("type"), name);
+
+            switch(value_mapping_type)
+            {
+              case MappingType::SUPPRESS:
+              case MappingType::DIRECT:
+              case MappingType::TO_RANGE:
+                return map_value_primitive(name, value, ctrl, mapping,
+                                           value_mapping_type, target_type);
+
+
+              case MappingType::CONST:
+                return map_value_constant(it->at("value"), target_type);
+
+              case MappingType::INVALID:
+              case MappingType::SELECT:
+                break;
+            }
+        }
     }
 
     return std::make_pair(nlohmann::json(), AddResult::IGNORED);

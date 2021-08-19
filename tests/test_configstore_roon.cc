@@ -506,7 +506,7 @@ TEST_CASE_FIXTURE(Fixture, "Set values of fake MP200 compound")
     const auto expected_path_after_volume_control = R"(
         [
             { "type": "t+a", "sub_type": "sys_link", "mode": "DAC 200", "quality": "lossless" },
-            { "type": "balance", "value": 0.17647058823529416, "quality": "lossless" },
+            { "type": "balance", "value": "R15", "quality": "lossless" },
             { "type": "eq", "sub_type": "treble", "gain": 2.0, "quality": "enhanced" },
             { "type": "eq", "sub_type": "bass", "gain": 1.0, "quality": "enhanced" },
             { "type": "t+a", "sub_type": "loudness", "quality": "enhanced" },
