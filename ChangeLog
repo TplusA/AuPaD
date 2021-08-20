@@ -1,3 +1,26 @@
+2021-08-20  Robert Tiemann  <r.tiemann@ta-hifi.de>
+
+	* Version 0.7 released.
+
+	* Roon: Fix MP 200 model according to Roon certification report.
+
+	* Roon: Improve the "select" mapping type so that it works with range
+	  parameters, not only choice parameters.
+
+	* Roon: Add value mapping type "const" which translates the input in a
+	  "select"-type mapping table into a constant value.
+
+	* Roon: Add two new mappings for translating values reported by
+	  appliance into values to be reported to Roon.
+
+	  One of these new mappings is "const_table" which is a simplified
+	  version of "select". Its mapping table is a plain array of values,
+	  indexed by the selected parameter.
+
+	  The other is "balance_slider" which is a specialized mapping just
+	  for balance sliders. It transforms signed integers into strings such
+	  as "L4" or "R31".
+
 2021-07-12  Robert Tiemann  <r.tiemann@ta-hifi.de>
 
 	* Version 0.6 released.
