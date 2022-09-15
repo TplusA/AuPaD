@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2020, 2021  T+A elektroakustik GmbH & Co. KG
+# Copyright (C) 2020, 2021, 2022  T+A elektroakustik GmbH & Co. KG
 #
 # This file is part of AuPaD.
 #
@@ -20,7 +20,7 @@
 #
 
 project('AuPaD', ['cpp', 'c'],
-    version: '0.7',
+    version: '0.8',
     default_options: ['warning_level=3', 'cpp_std=c++14', 'buildtype=plain'])
 
 PACKAGE = 'aupad'

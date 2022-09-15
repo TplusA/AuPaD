@@ -1,3 +1,9 @@
+2022-09-15  Robert Tiemann  <r.tiemann@ta-hifi.de>
+
+	* Version 0.8 released.
+
+	* Misc: Several minor fixes in shared code.
+
 2021-08-20  Robert Tiemann  <r.tiemann@ta-hifi.de>
 
 	* Version 0.7 released.
@@ -85,4 +91,4 @@
 	  and support for Roon are already included.
 
 
-Copyright 2019, 2020, 2021 T+A elektroakustik GmbH & Co. KG
+Copyright 2019, 2020, 2021, 2022 T+A elektroakustik GmbH & Co. KG
