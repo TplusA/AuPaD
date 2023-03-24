@@ -209,7 +209,7 @@ class Parser:
                 self.error('indentation expected')
 
         if len(line) >= self.indent_level:
-            if(line[0:self.indent_level] == ' ' * self.indent_level):
+            if line[0:self.indent_level] == ' ' * self.indent_level:
                 line = line[self.indent_level:]
             elif line[0] != ' ':
                 self._end_of_block()

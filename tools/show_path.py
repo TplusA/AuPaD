@@ -22,8 +22,8 @@ class Connectable:
 
     def __init__(self, id, signal_connectors):
         self.id = id
-        assert(signal_connectors >= Connectable.INBOUND)
-        assert(signal_connectors <= Connectable.INOUT)
+        assert signal_connectors >= Connectable.INBOUND
+        assert signal_connectors <= Connectable.INOUT
         self.signal_connectors = signal_connectors
         self.description = None
 
@@ -51,7 +51,7 @@ class AudioSource(Connectable):
         self.parent = None
 
     def set_parent(self, p):
-        assert(isinstance(p, AudioSource))
+        assert isinstance(p, AudioSource)
         self.parent = p
 
     def __repr__(self):
@@ -67,14 +67,14 @@ class AudioSink(Connectable):
 
 class Control:
     def __init__(self, id, json):
-        assert(isinstance(id, str))
+        assert isinstance(id, str)
         self.id = id
         self.label = json.get('label', None)
         self.desc = json.get('description', None)
         self.neutral_setting = json.get('neutral_setting', None)
         self.for_roon = json.get('roon', None)
-        assert(isinstance(self.label, (str, type(None))))
-        assert(isinstance(self.desc, (str, type(None))))
+        assert isinstance(self.label, (str, type(None)))
+        assert isinstance(self.desc, (str, type(None)))
 
     def __repr__(self):
         s = self.id
@@ -95,7 +95,7 @@ class Control:
 
 class ControlMapping:
     def __init__(self, id):
-        assert(isinstance(id, str))
+        assert isinstance(id, str)
         self.id = id
 
     def __repr__(self):
@@ -105,7 +105,7 @@ class ControlMapping:
 class ControlMappingTable(ControlMapping):
     def __init__(self, id, table):
         super().__init__(id)
-        assert(isinstance(table, list))
+        assert isinstance(table, list)
         self.__table = table
 
     def size(self):
@@ -119,9 +119,9 @@ class ControlOnOff(Control):
     def __init__(self, id, json):
         super().__init__(id, json)
         if self.neutral_setting is not None:
-            assert(isinstance(self.neutral_setting, str))
-            assert(self.neutral_setting == 'on' or
-                   self.neutral_setting == 'off')
+            assert isinstance(self.neutral_setting, str)
+            assert self.neutral_setting == 'on' or \
+                   self.neutral_setting == 'off'
 
     def __repr__(self):
         s = super().__repr__()
@@ -134,8 +134,8 @@ class ControlChoice(Control):
         super().__init__(id, json)
         self.choices = json['choices']
         if self.neutral_setting is not None:
-            assert(isinstance(self.neutral_setting, str))
-            assert(self.neutral_setting in self.choices)
+            assert isinstance(self.neutral_setting, str)
+            assert self.neutral_setting in self.choices
 
     def __repr__(self):
         s = super().__repr__()
@@ -153,16 +153,16 @@ class ControlRange(Control):
         self.step = json['step']
         self.scale = json['scale']
         self.mappings = []
-        assert(isinstance(self.min, (int, float)))
-        assert(isinstance(self.max, (int, float)))
-        assert(self.min <= self.max)
-        assert(isinstance(self.step, (int, float)))
-        assert(isinstance(self.scale, str))
+        assert isinstance(self.min, (int, float))
+        assert isinstance(self.max, (int, float))
+        assert self.min <= self.max
+        assert isinstance(self.step, (int, float))
+        assert isinstance(self.scale, str)
 
         if self.neutral_setting is not None:
-            assert(isinstance(self.neutral_setting, (int, float)))
-            assert(self.neutral_setting >= self.min and
-                   self.neutral_setting <= self.max)
+            assert isinstance(self.neutral_setting, (int, float))
+            assert self.neutral_setting >= self.min and \
+                   self.neutral_setting <= self.max
 
         mappings = json.get('mapped_to_scales', None)
         if mappings is not None:
@@ -171,7 +171,7 @@ class ControlRange(Control):
 
         for m in self.mappings:
             s = (self.max - self.min + 1) / self.step
-            assert(m.size() == s)
+            assert m.size() == s
 
     def __repr__(self):
         s = super().__repr__()
@@ -185,10 +185,10 @@ class ControlRange(Control):
 
 
 def _mk_control(id, json):
-    assert(isinstance(id, str))
+    assert isinstance(id, str)
 
     type = json['type']
-    assert(isinstance(type, str))
+    assert isinstance(type, str)
 
     if type == 'on_off':
         return ControlOnOff(id, json)
@@ -201,7 +201,7 @@ def _mk_control(id, json):
 
 
 def _mk_control_mapping(id, json):
-    assert(isinstance(id, str))
+    assert isinstance(id, str)
 
     if 'table' in json:
         return ControlMappingTable(id, json['table'])
@@ -215,7 +215,7 @@ class Element(Connectable):
         self.controls = []
 
     def add_control(self, ctl):
-        assert(isinstance(ctl, Control))
+        assert isinstance(ctl, Control)
         self.controls.append(ctl)
 
     def has_controls(self):
