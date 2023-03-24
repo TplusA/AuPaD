@@ -4,6 +4,7 @@
 /config.h.in
 /config.h.in~
 /configure
+/.gitreview
 
 Makefile.in
 
