@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, 2021  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2021, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -149,8 +149,8 @@ class Cache
         if(valid_methods.find(method) != valid_methods.end())
             return method;
 
-        BUG("Invalid Roon output method \"%s\" in audio path sink "
-            "(replaced by \"other\")", method.c_str());
+        MSG_BUG("Invalid Roon output method \"%s\" in audio path sink "
+                "(replaced by \"other\")", method.c_str());
 
         static const std::string fallback("other");
         return fallback;
@@ -216,7 +216,7 @@ range_pick(double ratio,
 {
     if(ratio < 0.0 || ratio > 1.0)
     {
-        BUG("Invalid ratio %f", ratio);
+        MSG_BUG("Invalid ratio %f", ratio);
         return std::make_pair(nlohmann::json(), AddResult::IGNORED);
     }
 
@@ -599,7 +599,7 @@ map_through_mapping_table(MappingType mapping_type,
       case MappingType::TO_RANGE:
       case MappingType::CONST:
       case MappingType::BALANCE_SLIDER:
-        BUG("what...");
+        MSG_BUG("what...");
         break;
 
       case MappingType::SELECT:
@@ -689,7 +689,7 @@ process_value_entry(const ConfigStore::DeviceContext &dev,
         return mapped.second;
 
       case AddResult::NEUTRAL:
-        BUG("%s(%d): case shouldn't occur", __func__, __LINE__);
+        MSG_BUG("%s(%d): case shouldn't occur", __func__, __LINE__);
         process_fn(nullptr, nullptr, ctrl);
         return mapped.second;
 
@@ -819,8 +819,8 @@ determine_path_rank_and_output_method(
     auto output_method(StaticModels::Utils::get<std::string>(*it, "method", ""));
 
     if(output_method.empty())
-        BUG("Roon output method undefined for sink %s in model for %s",
-            sink->id_.c_str(), dev.get_model()->name_.c_str());
+        MSG_BUG("Roon output method undefined for sink %s in model for %s",
+                sink->id_.c_str(), dev.get_model()->name_.c_str());
 
     return &ranks.emplace(sink, std::make_pair(rank, std::move(output_method)))
                 .first->second;
@@ -873,7 +873,7 @@ static void fill_cache_with_values_from_device_context(
                 try
                 {
                     auto &entry(cache.lookup_fragment(name));
-                    log_assert(entry.second == ctrl);
+                    msg_log_assert(entry.second == ctrl);
                     patch_entry_for_name(dev, name, value,
                                          *entry.second, entry.first);
                 }

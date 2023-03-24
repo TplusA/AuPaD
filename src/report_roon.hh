@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, 2021  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2021, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -27,6 +27,10 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wswitch-enum"
+#pragma GCC diagnostic ignored "-Wtype-limits"
+#ifdef __clang__
+#pragma GCC diagnostic ignored "-Wc++17-extensions"
+#endif /* __clang__ */
 #include "json.hh"
 #pragma GCC diagnostic pop
 

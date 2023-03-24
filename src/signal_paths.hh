@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -131,8 +131,8 @@ class OutgoingEdge
         to_pad_(to_pad),
         to_elem_(to_elem)
     {
-        log_assert(from_pad_.is_valid());
-        log_assert(to_pad_.is_valid());
+        msg_log_assert(from_pad_.is_valid());
+        msg_log_assert(to_pad_.is_valid());
     }
 
     Output get_output_pad() const { return from_pad_; }
@@ -222,18 +222,18 @@ class PathElement
     {
         if(!this_output_index.is_valid() || !other_input_index.is_valid())
         {
-            BUG("Tried connecting %s to %s using bad index (%u -> %u)",
-                name_.c_str(), other.name_.c_str(),
-                this_output_index.get(), other_input_index.get());
+            MSG_BUG("Tried connecting %s to %s using bad index (%u -> %u)",
+                    name_.c_str(), other.name_.c_str(),
+                    this_output_index.get(), other_input_index.get());
             return;
         }
         else if(this_output_index >= Output(UNREASONABLE) ||
                 other_input_index >= Input(UNREASONABLE))
         {
-            BUG("Unreasonably large index when trying to connect "
-                "%s to %s (%u -> %u) [connection ignored]",
-                name_.c_str(), other.name_.c_str(),
-                this_output_index.get(), other_input_index.get());
+            MSG_BUG("Unreasonably large index when trying to connect "
+                    "%s to %s (%u -> %u) [connection ignored]",
+                    name_.c_str(), other.name_.c_str(),
+                    this_output_index.get(), other_input_index.get());
             return;
         }
 
@@ -241,9 +241,9 @@ class PathElement
         if(edges != edges_by_output_.end() &&
            edges->second.find(other.name_) != edges->second.end())
         {
-            BUG("Duplicate edge from %s.%u to %s.%u",
-                name_.c_str(), this_output_index.get(),
-                other.name_.c_str(), other_input_index.get());
+            MSG_BUG("Duplicate edge from %s.%u to %s.%u",
+                    name_.c_str(), this_output_index.get(),
+                    other.name_.c_str(), other_input_index.get());
             return;
         }
 

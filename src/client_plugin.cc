@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -30,7 +30,7 @@
 
 void ClientPlugin::PluginManager::register_plugin(std::unique_ptr<Plugin> plugin)
 {
-    log_assert(plugin != nullptr);
+    msg_log_assert(plugin != nullptr);
     plugins_.emplace_back(std::move(plugin));
     plugins_.back()->registered();
 }
@@ -48,7 +48,7 @@ void ClientPlugin::PluginManager::shutdown() noexcept
         catch(...)
         {
             /* ignore any exceptions thrown by plugins */
-            BUG("Exception from plugin \"%s\" in shutdown", p->name_.c_str());
+            MSG_BUG("Exception from plugin \"%s\" in shutdown", p->name_.c_str());
         }
     }
 }

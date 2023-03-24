@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2021, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -76,7 +76,7 @@ bool ModelCompliant::CompoundSignalPathTracker::enumerate_compound_signal_paths(
         }
     );
 
-    log_assert(!device_name_store_.empty());
+    msg_log_assert(!device_name_store_.empty());
     device_name_store_.pop_back();
 
     return result;

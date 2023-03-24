@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, 2020, 2021  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020, 2021, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -1183,7 +1183,7 @@ std::string ConfigStore::Settings::json_string() const
     }
     catch(const std::exception &e)
     {
-        BUG("Failed serializing audio path configuration: %s", e.what());
+        MSG_BUG("Failed serializing audio path configuration: %s", e.what());
         return nlohmann::json().dump();
     }
 }
@@ -1196,7 +1196,7 @@ nlohmann::json ConfigStore::ConstSettingsJSON::json() const
     }
     catch(const std::exception &e)
     {
-        BUG("Failed obtaining audio path configuration: %s", e.what());
+        MSG_BUG("Failed obtaining audio path configuration: %s", e.what());
         return nlohmann::json();
     }
 }

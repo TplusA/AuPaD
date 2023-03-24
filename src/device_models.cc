@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -559,8 +559,8 @@ static void add_exceptions_to_demux_mapping(
         const StaticModels::Elements::Internal &element,
         const StaticModels::Elements::Control &selector)
 {
-    BUG("TODO: Mapping table present for demux %s, but not supported yet",
-        element.id_.c_str());
+    MSG_BUG("TODO: Mapping table present for demux %s, but not supported yet",
+            element.id_.c_str());
 }
 
 static StaticModels::SignalPaths::SwitchingElement
@@ -738,7 +738,7 @@ static void add_elements(StaticModels::SignalPaths::ApplianceBuilder &b,
         {
             const auto *internal_element =
                 dynamic_cast<StaticModels::Elements::Internal *>(elem.second.get());
-            log_assert(internal_element != nullptr);
+            msg_log_assert(internal_element != nullptr);
 
             try
             {

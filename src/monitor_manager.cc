@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -45,8 +45,8 @@ static gboolean dbushandler_register_client(
     }
     catch(...)
     {
-        BUG("Callback %s() for unknown object path %s",
-            __func__, g_dbus_method_invocation_get_object_path(invocation));
+        MSG_BUG("Callback %s() for unknown object path %s",
+                __func__, g_dbus_method_invocation_get_object_path(invocation));
         d->iface.method_fail(invocation, "Registration locked");
         return TRUE;
     }
@@ -73,8 +73,8 @@ static gboolean dbushandler_unregister_client(
     }
     catch(...)
     {
-        BUG("Callback %s() for unknown object path %s",
-            __func__, g_dbus_method_invocation_get_object_path(invocation));
+        MSG_BUG("Callback %s() for unknown object path %s",
+                __func__, g_dbus_method_invocation_get_object_path(invocation));
         d->iface.method_fail(invocation, "Unregistration locked");
     }
 
@@ -87,7 +87,7 @@ void ClientPlugin::MonitorManager::mk_registration_interface(
 {
     if(plugins_.find(object_path) != plugins_.end())
     {
-        BUG("Monitor registration interface already created on %s", object_path);
+        MSG_BUG("Monitor registration interface already created on %s", object_path);
         return;
     }
 

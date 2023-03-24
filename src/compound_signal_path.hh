@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2021, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -103,7 +103,7 @@ class CompoundSignalPathTracker
   private:
     void extend_path(const SignalPathTracker::ActivePath &partial)
     {
-        log_assert(!device_name_store_.empty());
+        msg_log_assert(!device_name_store_.empty());
         current_path_.path_.resize(device_name_store_.back().second);
         std::transform(partial.begin(), partial.end(),
                        std::back_inserter(current_path_.path_),

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, 2021  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2021, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -33,16 +33,16 @@ bool ModelCompliant::SignalPathTracker::select(
 
     if(elem == nullptr)
     {
-        APPLIANCE_BUG("Cannot select nonexistent switching element %s in %s",
-                      element_name.c_str(), dev_.get_name().c_str());
+        MSG_APPLIANCE_BUG("Cannot select nonexistent switching element %s in %s",
+                          element_name.c_str(), dev_.get_name().c_str());
         return false;
     }
 
     if(!elem->is_selector_in_range(sel))
     {
-        BUG("Selector value %u out of range for %s.%s",
-            sel.get(), elem->get_name().c_str(),
-            elem->get_selector_name().c_str());
+        MSG_BUG("Selector value %u out of range for %s.%s",
+                sel.get(), elem->get_name().c_str(),
+                elem->get_selector_name().c_str());
         return false;
     }
 
@@ -69,8 +69,8 @@ bool ModelCompliant::SignalPathTracker::floating(const std::string &element_name
 
     if(elem == nullptr)
     {
-        APPLIANCE_BUG("Cannot float nonexistent switching element %s in %s",
-                      dev_.get_name().c_str(), element_name.c_str());
+        MSG_APPLIANCE_BUG("Cannot float nonexistent switching element %s in %s",
+                          dev_.get_name().c_str(), element_name.c_str());
         return false;
     }
 
@@ -213,7 +213,7 @@ class DepthFirst
             break;
 
           case IterAction::CONTINUE:
-            BUG("Unexpected edge processing result");
+            MSG_BUG("Unexpected edge processing result");
             break;
         }
 

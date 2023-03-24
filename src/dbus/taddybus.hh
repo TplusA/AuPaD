@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -441,8 +441,8 @@ class Proxy: public ProxyBase
     {
         if(is_busy_)
         {
-            BUG("Cannot create proxy for D-Bus object %s at %s while busy",
-                object_path_.c_str(), name_.c_str());
+            MSG_BUG("Cannot create proxy for D-Bus object %s at %s while busy",
+                    object_path_.c_str(), name_.c_str());
             return;
         }
 
@@ -559,7 +559,7 @@ class Proxy: public ProxyBase
             }
             catch(const std::exception &e)
             {
-                BUG("Exception thrown by method done handler: %s", e.what());
+                MSG_BUG("Exception thrown by method done handler: %s", e.what());
             }
 
             proxy.pending_calls_.erase(data->second);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -197,7 +197,7 @@ static void process_dcpd_audio_path_update(
     }
     catch(const std::exception &e)
     {
-        APPLIANCE_BUG("Failed processing audio path update: %s", e.what());
+        MSG_APPLIANCE_BUG("Failed processing audio path update: %s", e.what());
         return;
     }
 
