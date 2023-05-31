@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, 2020, 2021  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020, 2021, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -234,7 +234,7 @@ TEST_CASE_FIXTURE(Fixture, "Settings update for CALA CDR")
     const auto expected_update = R"(
         [
             { "type": "digital_volume",                         "quality": "high",     "gain": 60.0 },
-            { "type": "balance",                                "quality": "lossless", "value": 0.11764705882352944 },
+            { "type": "balance",                                "quality": "lossless", "value": "R10" },
             { "type": "eq",  "sub_type": "bass",                "quality": "enhanced", "gain": 1.0 },
             { "type": "eq",  "sub_type": "mid",                 "quality": "enhanced", "gain": 0.5 },
             { "type": "t+a", "sub_type": "contour_presence",    "quality": "enhanced", "gain": 2.0 },
@@ -296,7 +296,7 @@ TEST_CASE_FIXTURE(Fixture, "Tone control override in CALA CDR")
     const auto expected_path_after_init = R"(
         [
             { "type": "digital_volume",                         "quality": "high",     "gain": 60.0 },
-            { "type": "balance",                                "quality": "lossless", "value": 0.11764705882352944 },
+            { "type": "balance",                                "quality": "lossless", "value": "R10" },
             { "type": "t+a", "sub_type": "loudness",            "quality": "enhanced" },
             { "type": "eq",  "sub_type": "bass",                "quality": "enhanced", "gain": 1.0 },
             { "type": "eq",  "sub_type": "mid",                 "quality": "enhanced", "gain": 0.5 },
@@ -331,7 +331,7 @@ TEST_CASE_FIXTURE(Fixture, "Tone control override in CALA CDR")
     const auto expected_path_after_tone_control_disable = R"(
         [
             { "type": "digital_volume",                         "quality": "high",     "gain": 60.0 },
-            { "type": "balance",                                "quality": "lossless", "value": 0.11764705882352944 },
+            { "type": "balance",                                "quality": "lossless", "value": "R10" },
             { "type": "t+a", "sub_type": "loudness",            "quality": "enhanced" },
             { "type": "t+a", "sub_type": "contour_presence",    "quality": "enhanced", "gain": 2.0 },
             { "type": "t+a", "sub_type": "contour_fundamental", "quality": "enhanced", "gain": -1.0 },
