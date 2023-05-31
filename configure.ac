@@ -67,7 +67,7 @@ AC_CHECK_HEADER([doctest.h])
 AC_LANG_POP([C++])
 
 # Checks for typedefs, structures, and compiler characteristics.
-AX_CXX_COMPILE_STDCXX_14([noext])
+AX_CXX_COMPILE_STDCXX_17([noext])
 
 # Checks for library functions.
 

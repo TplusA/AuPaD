@@ -21,7 +21,7 @@
 
 project('AuPaD', ['cpp', 'c'],
     version: '0.9',
-    default_options: ['warning_level=3', 'cpp_std=c++14', 'buildtype=plain'])
+    default_options: ['warning_level=3', 'cpp_std=c++17', 'buildtype=plain'])
 
 PACKAGE = 'aupad'
 
