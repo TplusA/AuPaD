@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, 2020  T+A elektroakustik GmbH & Co. KG
+ * Copyright (C) 2019, 2020, 2023  T+A elektroakustik GmbH & Co. KG
  *
  * This file is part of AuPaD.
  *
@@ -35,8 +35,7 @@ static void handle_audio_path_request(const char *json)
 static gboolean audio_path_change_request(
         tdbusJSONReceiver *const object,
         GDBusMethodInvocation *const invocation,
-        const gchar *const json,
-        const gchar *const *const extra,
+        const gchar *const json, GVariant *extra,
         TDBus::MethodHandlerTraits<TDBus::JSONReceiverTell>::template UserData<> *const d)
 {
     std::string answer;
@@ -61,8 +60,7 @@ static gboolean audio_path_change_request(
 static gboolean audio_path_change_request_ignore_errors(
         tdbusJSONReceiver *const object,
         GDBusMethodInvocation *const invocation,
-        const gchar *const json,
-        const gchar *const *const extra,
+        const gchar *const json, GVariant *extra,
         TDBus::MethodHandlerTraits<TDBus::JSONReceiverNotify>::template UserData<> *const d)
 {
     try
@@ -84,11 +82,12 @@ static gboolean audio_path_change_request_ignore_errors(
 static void debugging_and_logging(TDBus::Bus &bus)
 {
     static TDBus::Iface<tdbusdebugLogging> logging_iface("/de/tahifi/AuPaD");
-    logging_iface.connect_method_handler_simple<TDBus::DebugLoggingDebugLevel>();
+    logging_iface.connect_default_method_handler<TDBus::DebugLoggingDebugLevel>();
     bus.add_auto_exported_interface(logging_iface);
 
-    static TDBus::Proxy<tdbusdebugLoggingConfig>
-    logging_config_proxy("de.tahifi.Dcpd", "/de/tahifi/Dcpd");
+    static auto logging_config_proxy(
+        TDBus::Proxy<tdbusdebugLoggingConfig>::make_proxy("de.tahifi.Dcpd",
+                                                          "/de/tahifi/Dcpd"));
 
     bus.add_watcher("de.tahifi.Dcpd",
         [] (GDBusConnection *connection, const char *name)
@@ -98,7 +97,7 @@ static void debugging_and_logging(TDBus::Bus &bus)
                 [] (TDBus::Proxy<tdbusdebugLoggingConfig> &proxy, bool succeeded)
                 {
                     if(succeeded)
-                        proxy.connect_signal_handler_simple<TDBus::DebugLoggingConfigGlobalDebugLevelChanged>();
+                        proxy.connect_default_signal_handler<TDBus::DebugLoggingConfigGlobalDebugLevelChanged>();
                 });
         },
         [] (GDBusConnection *connection, const char *name)

@@ -38,8 +38,8 @@ configstore_roon_lib = static_library('configstore_roon',
 )
 
 sigpath_lib = static_library('sigpath',
-    ['signal_path_tracker.cc', 'compound_signal_path.cc'],
-    dependencies: config_h
+    ['signal_path_tracker.cc', 'compound_signal_path.cc', 'gvariantwrapper.cc'],
+    dependencies: [glib_deps, config_h],
 )
 
 executable(

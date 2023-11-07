@@ -181,8 +181,7 @@ static bool setup(const Parameters &parameters)
 
 static void process_dcpd_audio_path_update(
         tdbusJSONEmitter *const object,
-        const gchar *const json,
-        const gchar *const *const extra,
+        const gchar *const json, GVariant *extra,
         TDBus::SignalHandlerTraits<TDBus::JSONEmitterObject>::template UserData<
             ClientPlugin::PluginManager &, ConfigStore::Settings &
         > *const d)
@@ -261,10 +260,12 @@ static void listen_to_dcpd_audio_path_updates(TDBus::Bus &bus,
                                               ClientPlugin::PluginManager &pm,
                                               ConfigStore::Settings &settings)
 {
-    static TDBus::Proxy<tdbusJSONReceiver>
-    requests_for_dcpd_proxy("de.tahifi.Dcpd", "/de/tahifi/Dcpd/AudioPaths");
-    static TDBus::Proxy<tdbusJSONEmitter>
-    updates_from_dcpd_proxy("de.tahifi.Dcpd", "/de/tahifi/Dcpd/AudioPaths");
+    static auto requests_for_dcpd_proxy(
+        TDBus::Proxy<tdbusJSONReceiver>::make_proxy("de.tahifi.Dcpd",
+                                                    "/de/tahifi/Dcpd/AudioPaths"));
+    static auto updates_from_dcpd_proxy(
+        TDBus::Proxy<tdbusJSONEmitter>::make_proxy("de.tahifi.Dcpd",
+                                                   "/de/tahifi/Dcpd/AudioPaths"));
 
     bus.add_watcher("de.tahifi.Dcpd",
         [&pm, &settings]
@@ -294,7 +295,7 @@ strings_to_cstrings(const std::vector<std::string> &vs)
 static gboolean get_full_roon_audio_path(
         tdbusJSONEmitter *const object,
         GDBusMethodInvocation *const invocation,
-        const gchar *const *const params,
+        GVariant *params,
         TDBus::MethodHandlerTraits<TDBus::JSONEmitterGet>::template UserData<
             const ClientPlugin::Roon &, const ConfigStore::Settings &
         > *const d)

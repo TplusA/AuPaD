@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2020  T+A elektroakustik GmbH & Co. KG
+# Copyright (C) 2020, 2023  T+A elektroakustik GmbH & Co. KG
 #
 # This file is part of AuPaD.
 #
@@ -21,41 +21,77 @@
 
 gnome = import('gnome')
 
-dbus_iface_dir = '../../dbus_interfaces'
-dbus_iface_defs_includes = include_directories(dbus_iface_dir)
+dbus_iface_dir = meson.project_source_root() / 'dbus_interfaces'
+dbus_iface_defs_includes = include_directories('../../dbus_interfaces')
 
-dbus_iface_data = [
-    ['de_tahifi_aupad',  'de.tahifi.AuPaD.', 'tdbus_aupad', meson.project_name()],
-    ['de_tahifi_jsonio', 'de.tahifi.',       'tdbus',       'JSON Object Exchange'],
-    ['de_tahifi_debug',  'de.tahifi.Debug.', 'tdbus_debug', 'Debug Levels'],
-]
+dbus_iface_data = {
+    'de_tahifi_jsonio': [
+        'de.tahifi.',               'tdbus',        '',
+        'JSON Object Exchange',
+    ],
+    'de_tahifi_debug': [
+        'de.tahifi.Debug.',         'tdbus_debug',  'Debug',
+        'Debug Levels',
+    ],
+    'de_tahifi_aupad': [
+        'de.tahifi.AuPaD.',         'tdbus_aupad',  'AuPaD',
+        meson.project_name(),
+    ],
+}
 
 dbus_deps = []
+dbus_headers = []
 dbus_docs = []
+dbus_toc_inputs = []
+tdbus_headers = []
 
-foreach d : dbus_iface_data
+foreach name, d : dbus_iface_data
+    codegen = gnome.gdbus_codegen(name,
+                                  sources: dbus_iface_dir / name + '.xml',
+                                  interface_prefix: d[0],
+                                  namespace: d[1])
+    dbus_headers += codegen[1]
     dbus_deps += declare_dependency(
         link_with: static_library(
-            d[0].split('_')[-1] + '_dbus',
-            gnome.gdbus_codegen(d[0],
-                                sources: dbus_iface_dir / d[0] + '.xml',
-                                interface_prefix: d[1],
-                                namespace: d[2]),
+            name.split('_')[-1] + '_dbus', codegen,
             dependencies: [glib_deps, config_h],
-            c_args: relaxed_dbus_warnings),
+            c_args: relaxed_dbus_warnings
+        ),
         include_directories: dbus_iface_defs_includes
     )
+    codegen = []
 
-    dbus_docs += custom_target(d[0] + '_docs',
-        input: dbus_iface_dir / d[0] + '.xml',
-        output: ['@BASENAME@-doc.md', '@BASENAME@-doc.h'],
+    doc_target = custom_target(name + '_docs',
+        input: dbus_iface_dir / name + '.xml',
+        output: ['@BASENAME@-doc.mdp', '@BASENAME@-doc.h'],
         command: [
             extract_docs, '-i', '@INPUT@', '-o', '@OUTPUT0@', '-H', '@OUTPUT1@',
-            '-c', d[2], '-s', d[1], '-n', d[3]
-        ])
+            '-c', d[1], '-s', d[0], '-n', d[3]
+        ]
+    )
+    dbus_toc_inputs += doc_target[0]
+    dbus_docs += doc_target
+    doc_target = []
+
+    tdbus_headers += custom_target(name + '_tdbus',
+        input: dbus_iface_dir / name + '.xml',
+        output: '@BASENAME@.hh',
+        command: [
+            taddybus_codegen, '-o', '@OUTPUT@', '--interface-prefix', d[0],
+            '--c-namespace', d[1], '--cpp-traits-prefix', d[2], '@INPUT@'
+        ]
+    )
 endforeach
 
+dbus_docs += custom_target('all_interfaces_toc.md',
+    input: dbus_toc_inputs,
+    output: ['all_interfaces_toc.md', 'all_interfaces.md'],
+    command: [
+        combine_iface_pages, '-toc', '@OUTPUT0@', '-ifaces', '@OUTPUT1@', '@INPUT@'
+    ]
+)
+
 taddybus_lib = static_library('taddybus',
-    'taddybus.cc',
+    ['taddybus.cc', tdbus_headers, dbus_docs],
     dependencies: [glib_deps, config_h],
 )

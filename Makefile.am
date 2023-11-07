@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2019  T+A elektroakustik GmbH & Co. KG
+# Copyright (C) 2019, 2023  T+A elektroakustik GmbH & Co. KG
 #
 # This file is part of AuPaD.
 #
@@ -34,6 +34,8 @@ EXTRA_DIST += \
     tools/aupalc.py \
     tools/show_path.py \
     dbus_interfaces/extract_documentation.py \
+    dbus_interfaces/combine_iface_pages.sh \
+    dbus_interfaces/taddybus-codegen.py \
     dbus_interfaces/de_tahifi_aupad.xml \
     dbus_interfaces/de_tahifi_jsonio.xml
 
